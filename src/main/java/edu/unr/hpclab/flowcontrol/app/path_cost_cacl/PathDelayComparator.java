@@ -3,10 +3,7 @@ package edu.unr.hpclab.flowcontrol.app.path_cost_cacl;
 import java.util.Comparator;
 
 public class PathDelayComparator extends PathCalculator implements Comparator<MyPath> {
-    public static final double COMPARING_FACTOR = 1.3;
-
     private final double requestedDelay;
-
     public PathDelayComparator(double requestedDelay) {
         this.requestedDelay = requestedDelay;
     }

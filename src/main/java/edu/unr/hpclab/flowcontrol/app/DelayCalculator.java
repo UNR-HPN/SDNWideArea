@@ -54,6 +54,10 @@ public class DelayCalculator {
     }
 
     public void testLinksLatency(Iterable<Link> links, boolean isBase) {
+        Services.getExecutor(ThreadsEnum.DELAY_CALCULATOR).submit(() -> testLinkLatencyThreaded(links, isBase));
+    }
+
+    private void testLinkLatencyThreaded(Iterable<Link> links, boolean isBase) {
         Thread currentThread = Thread.currentThread();
         InBoundProcessor inBoundProcessor = new InBoundProcessor(currentThread);
         InternalOpenFlowEventListener listener = new InternalOpenFlowEventListener(currentThread);
@@ -68,6 +72,7 @@ public class DelayCalculator {
     private void testLinksLatency(Iterable<Link> links, Thread currentThread, boolean isBase) {
         links.forEach(link -> {
             try {
+                logger.debug("Link {} is being tested for its delay", link);
                 synchronized (currentThread) {
                     sendEcho(link.src());
                     currentThread.wait();
@@ -164,7 +169,7 @@ public class DelayCalculator {
                         } else {
                             LinksInformationDatabase.updateLinkLatestDelay(link, delay);
                         }
-                        logger.info("Delay for link {} is {}", Util.formatLink(link), delay);
+                        logger.debug("Delay for link {} is {}", Util.formatLink(link), delay);
                         context.block();
                         synchronized (thread) {
                             thread.notify();

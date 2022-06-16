@@ -5,7 +5,6 @@ import org.onosproject.net.Path;
 import java.util.Comparator;
 
 public class ActiveFlowPathComparator extends PathCalculator implements Comparator<Path> {
-    public static final double COMPARING_FACTOR = 1.5;
 
     @Override
     public int compare(Path path1, Path path2) {

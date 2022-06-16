@@ -44,6 +44,7 @@ edu/unr/hpclab/flowcontrol/app/DelayCalculator$Info.class
 edu/unr/hpclab/flowcontrol/app/FixedSizeQueue.class
 edu/unr/hpclab/flowcontrol/app/congestionevent/LinkCongestionEvent$Type.class
 edu/unr/hpclab/flowcontrol/app/congestionevent/LinkCongestionListenerManager.class
+edu/unr/hpclab/flowcontrol/app/SrcDstTrafficInfo$CurrentRateWatcher.class
 edu/unr/hpclab/flowcontrol/app/host_messages/HostMessageHandler.class
 edu/unr/hpclab/flowcontrol/app/LinksInformationDatabase.class
 edu/unr/hpclab/flowcontrol/app/DelayCalculator$InternalOpenFlowEventListener.class

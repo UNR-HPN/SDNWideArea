@@ -5,23 +5,30 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import edu.unr.hpclab.flowcontrol.app.path_cost_cacl.MyPath;
 import org.onlab.graph.ScalarWeight;
-import org.onlab.util.DataRateUnit;
 import org.onosproject.net.HostLocation;
 import org.onosproject.net.Link;
-import org.onosproject.net.PortNumber;
-import org.onosproject.net.device.PortStatistics;
+import org.onosproject.net.flow.FlowEntry;
+import org.onosproject.net.flow.criteria.Criterion;
+import org.onosproject.net.flow.criteria.EthCriterion;
+import org.onosproject.net.flow.criteria.TcpPortCriterion;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 
-import static edu.unr.hpclab.flowcontrol.app.Services.deviceService;
+import static edu.unr.hpclab.flowcontrol.app.Services.appId;
+import static edu.unr.hpclab.flowcontrol.app.Services.flowRuleService;
 
 
 public class SrcDstTrafficInfo {
-    public final static SrcDstTrafficInfo DUMMY_INSTANCE = new SrcDstTrafficInfo(null, null);
+    private final Logger log = LoggerFactory.getLogger(getClass());
     private final SrcDstPair srcDstPair;
     private final long timeStarted;
     private long requestedRate;
@@ -30,8 +37,7 @@ public class SrcDstTrafficInfo {
     private List<MyPath> altPaths = new LinkedList<>();
     private long currentRate;
     private long highestRecordedRate;
-    private long latestReportedRate;
-
+    private final CurrentRateWatcher currentRateWatcher = new CurrentRateWatcher();
 
     public SrcDstTrafficInfo(SrcDstPair srcDstPair, MyPath currentPath) {
         this.srcDstPair = srcDstPair;
@@ -53,16 +59,8 @@ public class SrcDstTrafficInfo {
         this.requestedDelay = requestedDelay;
     }
 
-    public long getLatestReportedRate() {
-        return latestReportedRate;
-    }
-
     public long getRequestedRate() {
         return requestedRate;
-    }
-
-    public void setRequestedRate(long requestedRate) {
-        this.requestedRate = requestedRate;
     }
 
     public Long getTimeStarted() {
@@ -70,25 +68,18 @@ public class SrcDstTrafficInfo {
     }
 
     public long getCurrentRate() {
-        setCurrentRate();   // recalculate it to get accurate results
         return currentRate;
     }
 
     public void setCurrentRate(long rate) {
         this.currentRate = rate;
+        log.debug("Setting current rate of {} to {}", srcDstPair, rate);
     }
 
-    public void setCurrentRate() {
-        HostLocation host = Util.getHostByMac(srcDstPair.getSrc()).location();
-        PortNumber portNumber = host.port();
-        PortStatistics portStatistics = deviceService.getDeltaStatisticsForPort(host.deviceId(), portNumber);
-        long rate = Util.getBytesReceivingRate(portStatistics);
-        this.currentRate = rate;
+    public synchronized void setCurrentRate() {
+        currentRateWatcher.calc();
         if (this.currentRate > highestRecordedRate) {
             this.highestRecordedRate = currentRate;
-        }
-        if (rate > DataRateUnit.MBPS.toBitsPerSecond(2)) {
-            this.latestReportedRate = rate;
         }
     }
 
@@ -97,7 +88,6 @@ public class SrcDstTrafficInfo {
     }
 
     public long getHighestRecordedRate() {
-        setCurrentRate();   // recalculate it to get accurate results
         return highestRecordedRate;
     }
 
@@ -182,5 +172,44 @@ public class SrcDstTrafficInfo {
         }
 
         return linksJson;
+    }
+
+   private class CurrentRateWatcher {
+        private final Logger log = LoggerFactory.getLogger(getClass());
+
+        private long latestReadTime;
+        private long latestBytesMatched;
+
+        void calc() {
+            HostLocation host = Util.getHostByMac(srcDstPair.getSrcMac()).location();
+            Predicate<FlowEntry> filter = fe -> ((EthCriterion) fe.selector().getCriterion(Criterion.Type.ETH_SRC)).mac().equals(srcDstPair.getSrcMac())
+                    && ((EthCriterion) fe.selector().getCriterion(Criterion.Type.ETH_DST)).mac().equals(srcDstPair.getDstMac())
+                    && ((TcpPortCriterion) fe.selector().getCriterion(Criterion.Type.TCP_SRC)).tcpPort().toInt() == srcDstPair.getSrcPort()
+                    && ((TcpPortCriterion) fe.selector().getCriterion(Criterion.Type.TCP_DST)).tcpPort().toInt() == srcDstPair.getDstPort();
+
+            Optional<FlowEntry> feo = StreamSupport.stream(flowRuleService.getFlowEntriesById(appId).spliterator(), false)
+                    .filter(f -> f.deviceId().equals(host.elementId()))
+                    .filter(filter).findFirst();
+
+            if (feo.isPresent()) {
+                FlowEntry fe = feo.get();
+                long currentBytesMatched = fe.bytes();
+                if (this.latestReadTime == 0 || latestBytesMatched == 0){
+                    this.latestBytesMatched = currentBytesMatched;
+                    this.latestReadTime = System.currentTimeMillis();
+                }
+                if (this.latestReadTime < fe.lastSeen()) {
+                    currentRate = ((currentBytesMatched - this.latestBytesMatched) * 8 / Util.POLL_FREQ);
+                    this.latestBytesMatched = currentBytesMatched;
+                    this.latestReadTime = System.currentTimeMillis();
+                    log.debug("Flow rule is present for {}. Setting current rate for {}", srcDstPair, currentRate);
+                }
+            }else {
+                currentRate = 0;
+                log.debug("No flow rules found for {}. Setting current rate for {}", srcDstPair, currentRate);
+            }
+            log.info("Current Rate for {}: {}", srcDstPair, currentRate);
+            //        log.info("Current Rate (Device Service): {}", deviceService.getDeltaStatisticsForPort(host.deviceId(), host.port()).bytesReceived());
+        }
     }
 }

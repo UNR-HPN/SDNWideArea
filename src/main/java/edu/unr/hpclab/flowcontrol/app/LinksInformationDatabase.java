@@ -153,7 +153,7 @@ public class LinksInformationDatabase {
                     this.estimatedCapacity = latestRate;
                     LOGGER.info("PENALIZING THIS LINK {}. New Capacity is {}", link, estimatedCapacity);
                     setPenalizationTime(System.currentTimeMillis());
-                    SolutionFinder.findSolution(link);
+                    SolutionFinder.findSolutionForDroppedLink(link);
                 } else {
                     // LOGGER.info("Not PENALIZING THIS LINK {}", link);
                     this.estimatedCapacity = prevEstimate;
@@ -167,7 +167,7 @@ public class LinksInformationDatabase {
             if (Util.safeDivision(this.estimatedCapacity, DEFAULT_CAPACITY) < 0.5) {
                 this.estimatedCapacity = DEFAULT_CAPACITY;
                 LOGGER.info("Returned {} capacity to {}", link, estimatedCapacity);
-                SolutionFinder.findSolution(SrcDstTrafficInfo.DUMMY_INSTANCE);
+                SolutionFinder.findSolutionAfterFlowLeave();
             }
         }
 

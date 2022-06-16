@@ -13,6 +13,9 @@ public class AvailableCapacityPathWeightFunction extends PathCalculator implemen
         return INSTANCE;
     }
 
+    private AvailableCapacityPathWeightFunction() {
+    }
+
     @Override
     public MyPath apply(MyPath path) {
         Link lowestBwLink = getLowest_HighestLinkBandwidth(path, "lowest");

@@ -47,8 +47,7 @@ public abstract class PathCalculator {
 
     public static List<MyPath> getPathsByMaxSharedAvailableCapacity(SrcDstTrafficInfo srcDstTrafficInfo) {
         Function<MyPath, MyPath> function = MaxSharedAvailableCapacityFunction.instance();
-        Comparator<MyPath> myPathComparator = Comparator.comparing(MyPath::getMaxAvailableSharedRate)
-                .reversed().thenComparing(HopCountComparator.instance());
+        Comparator<MyPath> myPathComparator = MaxSharedAvailableCapacityPathComparator.instance().thenComparing(HopCountComparator.instance());
         return getMyPathsList(srcDstTrafficInfo, function, myPathComparator);
     }
 
@@ -62,7 +61,7 @@ public abstract class PathCalculator {
 
 
     public static List<MyPath> getKShortestPaths(SrcDstPair srcDstPair) {
-        Set<Path> paths = pathService.getKShortestPaths(hostId(srcDstPair.getSrc()), hostId(srcDstPair.getDst())).collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Path> paths = pathService.getKShortestPaths(hostId(srcDstPair.getSrcMac()), hostId(srcDstPair.getDstMac())).collect(Collectors.toCollection(LinkedHashSet::new));
         if (paths.isEmpty()) {
             return new ArrayList<>();
         }

@@ -7,6 +7,15 @@ import org.onosproject.net.Link;
 import java.util.function.UnaryOperator;
 
 public class SharedCapacityPathWeightFunction extends PathCalculator implements UnaryOperator<MyPath> {
+    private static final UnaryOperator<MyPath> INSTANCE = new SharedCapacityPathWeightFunction();
+
+    public static UnaryOperator<MyPath> instance() {
+        return INSTANCE;
+    }
+
+    private SharedCapacityPathWeightFunction() {
+    }
+
     @Override
     public MyPath apply(MyPath path) {
         Link lowestBwLink = getLowest_HighestLinkBandwidth(path, "lowest");

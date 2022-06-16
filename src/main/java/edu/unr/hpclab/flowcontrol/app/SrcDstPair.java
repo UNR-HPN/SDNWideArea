@@ -7,14 +7,17 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class SrcDstPair {
-    private final MacAddress src;
-    private final MacAddress dst;
+    private final MacAddress srcMac;
+    private final MacAddress dstMac;
+    private final int srcPort;
+    private final int dstPort;
 
-    private int tcpPort;
 
-    public SrcDstPair(MacAddress src, MacAddress dst) {
-        this.src = src;
-        this.dst = dst;
+    public SrcDstPair(MacAddress srcMac, MacAddress dstMac, int srcPort, int dstPort) {
+        this.srcMac = srcMac;
+        this.dstMac = dstMac;
+        this.srcPort = srcPort;
+        this.dstPort = dstPort;
     }
 
     @Override
@@ -26,26 +29,40 @@ public class SrcDstPair {
             return false;
         }
         SrcDstPair srcDstPair = (SrcDstPair) o;
-        return Objects.equals(src, srcDstPair.src) && Objects.equals(dst, srcDstPair.dst);
+        return Objects.equals(srcMac, srcDstPair.srcMac) && Objects.equals(dstMac, srcDstPair.dstMac) && Objects.equals(dstPort, srcDstPair.dstPort) && Objects.equals(srcPort, srcDstPair.srcPort);
     }
 
-    public MacAddress getSrc() {
-        return src;
+    public int getSrcPort() {
+        return srcPort;
     }
 
-    public MacAddress getDst() {
-        return dst;
+    public int getDstPort() {
+        return dstPort;
+    }
+
+    public MacAddress getSrcMac() {
+        return srcMac;
+    }
+
+    public MacAddress getDstMac() {
+        return dstMac;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(src, dst);
+        return Objects.hash(srcMac, dstMac, srcPort, dstPort);
+    }
+
+    public SrcDstPair reversed(){
+        return new SrcDstPair(dstMac, srcMac, dstPort, srcPort);
     }
 
     @Override
     public String toString() {
         return toStringHelper(this)
-                .add("src->dst:", src + "->" + dst)
+                .add("src->dst:", srcMac + "->" + dstMac)
+                .add("src port:", getSrcPort())
+                .add("dst port:", getDstPort())
                 .toString();
     }
 }

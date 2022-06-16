@@ -1,7 +1,12 @@
 package edu.unr.hpclab.flowcontrol.app;
 
 
+import org.onlab.packet.Ethernet;
+import org.onlab.packet.ICMP;
+import org.onlab.packet.IPv4;
 import org.onlab.packet.MacAddress;
+import org.onlab.packet.TCP;
+import org.onlab.packet.UDP;
 import org.onlab.util.DataRateUnit;
 import org.onosproject.cfg.ConfigProperty;
 import org.onosproject.net.DeviceId;
@@ -27,12 +32,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -96,27 +98,27 @@ public class Util {
         return dst;
     }
 
-    public static List<SrcDstPair> getSrcDstMacsForPortOutToLink(DeviceId deviceId, PortNumber inPort, PortNumber outPort) {
-        List<SrcDstPair> srcDstPairs = new LinkedList<>();
-        for (FlowEntry fe : flowRuleService.getFlowEntries(deviceId)) {
-            Instruction instruction = fe.treatment().immediate().get(0);
-            if (instruction instanceof Instructions.OutputInstruction && ((Instructions.OutputInstruction) instruction).port().equals(outPort)) {
-                Criterion criterion = fe.selector().getCriterion(Criterion.Type.IN_PORT);
-                if (criterion != null && ((PortCriterion) criterion).port().equals(inPort)) {
-                    MacAddress src = ((EthCriterion) fe.selector().getCriterion(Criterion.Type.ETH_SRC)).mac();
-                    MacAddress dst = ((EthCriterion) fe.selector().getCriterion(Criterion.Type.ETH_DST)).mac();
-                    srcDstPairs.add(new SrcDstPair(src, dst));
-                }
-            }
-        }
-        return srcDstPairs;
-    }
+//    public static List<SrcDstPair> getSrcDstMacsForPortOutToLink(DeviceId deviceId, PortNumber inPort, PortNumber outPort) {
+//        List<SrcDstPair> srcDstPairs = new LinkedList<>();
+//        for (FlowEntry fe : flowRuleService.getFlowEntries(deviceId)) {
+//            Instruction instruction = fe.treatment().immediate().get(0);
+//            if (instruction instanceof Instructions.OutputInstruction && ((Instructions.OutputInstruction) instruction).port().equals(outPort)) {
+//                Criterion criterion = fe.selector().getCriterion(Criterion.Type.IN_PORT);
+//                if (criterion != null && ((PortCriterion) criterion).port().equals(inPort)) {
+//                    MacAddress src = ((EthCriterion) fe.selector().getCriterion(Criterion.Type.ETH_SRC)).mac();
+//                    MacAddress dst = ((EthCriterion) fe.selector().getCriterion(Criterion.Type.ETH_DST)).mac();
+//                    srcDstPairs.add(new SrcDstPair(src, dst));
+//                }
+//            }
+//        }
+//        return srcDstPairs;
+//    }
 
-    public static Map<PortNumber, List<SrcDstPair>> getSrcDstMacsForInPortsOutToLink(DeviceId deviceId, Set<PortNumber> inPorts, Link link) {
-        Map<PortNumber, List<SrcDstPair>> srcDstMacs = new HashMap<>();
-        inPorts.forEach(port -> srcDstMacs.put(port, getSrcDstMacsForPortOutToLink(deviceId, port, link.src().port())));
-        return srcDstMacs;
-    }
+//    public static Map<PortNumber, List<SrcDstPair>> getSrcDstMacsForInPortsOutToLink(DeviceId deviceId, Set<PortNumber> inPorts, Link link) {
+//        Map<PortNumber, List<SrcDstPair>> srcDstMacs = new HashMap<>();
+//        inPorts.forEach(port -> srcDstMacs.put(port, getSrcDstMacsForPortOutToLink(deviceId, port, link.src().port())));
+//        return srcDstMacs;
+//    }
 
 
     public static Host getHostByMac(MacAddress macAddress) {

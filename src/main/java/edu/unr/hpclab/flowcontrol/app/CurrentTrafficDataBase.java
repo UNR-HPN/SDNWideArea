@@ -10,6 +10,7 @@ import org.onosproject.store.service.EventuallyConsistentMapEvent;
 import org.onosproject.store.service.WallClockTimestamp;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,15 +67,20 @@ public class CurrentTrafficDataBase {
                 .withSerializer(mySerializer)
                 .build();
 
-        CURRENT_TRAFFIC_MAP.addListener((x) ->{
-            if(x.type() == EventuallyConsistentMapEvent.Type.REMOVE){   //
-                SolutionFinder.findSolution(x.value());
-                LOGGER.info("Removed srcDstPair {}", x.value().getSrcDstPair());
+        CURRENT_TRAFFIC_MAP.addListener((x) -> {
+            if (x.type() == EventuallyConsistentMapEvent.Type.REMOVE) {   //
+                SolutionFinder.findSolutionAfterFlowLeave();
+//                LOGGER.info("Removed srcDstPair {}", x.value().getSrcDstPair());
             }
         });
 
         CurrentTrafficAliveStatusTimerTask scheduleApp = new CurrentTrafficAliveStatusTimerTask();
-        timer.schedule(scheduleApp, TimeUnit.SECONDS.toMillis(Util.POLL_FREQ + 2), TimeUnit.SECONDS.toMillis(Util.POLL_FREQ + 2));
+        timer.schedule(scheduleApp, TimeUnit.SECONDS.toMillis(Util.POLL_FREQ), TimeUnit.SECONDS.toMillis(Util.POLL_FREQ));
+    }
+
+    @Deactivate
+    protected void deactivate() {
+        timer.cancel();
     }
 
     private static class CurrentTrafficAliveStatusTimerTask extends TimerTask {
@@ -83,7 +89,8 @@ public class CurrentTrafficDataBase {
         public void run() {
             for (Map.Entry<SrcDstPair, SrcDstTrafficInfo> entry : CURRENT_TRAFFIC_MAP.entrySet()) {
                 // Ignoring traffic below 2 MBPs and Too recent traffic (less than 5 sec)
-                boolean remove = entry.getValue().getCurrentRate() < DataRateUnit.MBPS.toBitsPerSecond(2) && Util.ageInSeconds(entry.getValue().getTimeStarted()) > Util.POLL_FREQ;
+                entry.getValue().setCurrentRate();   // recalculate it to get accurate results
+                boolean remove = entry.getValue().getCurrentRate() < DataRateUnit.MBPS.toBitsPerSecond(2) && Util.ageInSeconds(entry.getValue().getTimeStarted()) >= 2 * Util.POLL_FREQ;
                 if (remove) {
                     LOGGER.info("Removing {}", entry.getKey());
                     CURRENT_TRAFFIC_MAP.remove(entry.getKey());

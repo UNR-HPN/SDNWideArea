@@ -34,8 +34,8 @@ public class HostMessageHandler {
                     .withSerializer(mySerializer)
                     .build();
 
-    public static void parseAndAct(SrcDstPair srcDstPair, String message) {
-        String[] tokens = message.strip().split(":");
+
+    public static void parseAndAct(SrcDstPair srcDstPair, String... tokens) {
         HostMessageType type = parseAndGetType(tokens[0]);
         String value = preprocessValue(tokens[1], type);
         log.info(String.format("%s:%s", type, value));
@@ -52,6 +52,7 @@ public class HostMessageHandler {
             HOST_MESSAGES_MAP.get(srcDstPair).get(type).add(value);
         }
     }
+
 
     private static String preprocessValue(String value, HostMessageType type) {
         if (HostMessageType.RATE_REQUEST.equals(type)) {
@@ -95,12 +96,13 @@ public class HostMessageHandler {
 
     private static HostMessageType parseAndGetType(String message) {
         message = message.toLowerCase().trim();
-        if ("rate".equals(message)) {
-            return HostMessageType.RATE_REQUEST;
-        } else if ("delay".equals(message)) {
-            return HostMessageType.DELAY_REQUEST;
-        } else {
-            return HostMessageType.UNKNOWN;
+        switch (message) {
+            case "rate":
+                return HostMessageType.RATE_REQUEST;
+            case "delay":
+                return HostMessageType.DELAY_REQUEST;
+            default:
+                return HostMessageType.UNKNOWN;
         }
     }
 }

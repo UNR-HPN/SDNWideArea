@@ -2,7 +2,8 @@ package edu.unr.hpclab.flowcontrol.app;
 
 import edu.unr.hpclab.flowcontrol.app.path_cost_cacl.MyPath;
 import edu.unr.hpclab.flowcontrol.app.path_cost_cacl.PathCalculator;
-import org.onlab.packet.MacAddress;
+import org.onlab.packet.IPv4;
+import org.onlab.packet.TpPort;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.Link;
 import org.onosproject.net.Path;
@@ -22,6 +23,7 @@ import java.util.function.Supplier;
 
 import static edu.unr.hpclab.flowcontrol.app.Services.appId;
 import static edu.unr.hpclab.flowcontrol.app.Services.flowObjectiveService;
+import static org.onlab.packet.Ethernet.TYPE_IPV4;
 
 public class PathFinderAndRuleInstaller {
     static Logger log = LoggerFactory.getLogger(CongestionHelper.class);
@@ -62,19 +64,23 @@ public class PathFinderAndRuleInstaller {
         for (int i = 1; i < links.size(); i++) {
             outPort = links.get(i).src().port();
             deviceId = links.get(i).src().deviceId();
-            addFlowEntry(deviceId, srcDstPair.getSrc(), srcDstPair.getDst(), outPort, inPort);
+            addFlowEntry(deviceId, srcDstPair, outPort, inPort);
             inPort = links.get(i).dst().port();
         }
     }
 
-    private static void addFlowEntry(DeviceId dId, MacAddress src, MacAddress dst, PortNumber outPort, PortNumber inPort) {
+    private static void addFlowEntry(DeviceId dId, SrcDstPair srcDstPair, PortNumber outPort, PortNumber inPort) {
         TrafficTreatment treatment = DefaultTrafficTreatment.builder()
                 .setOutput(outPort)
                 .build();
 
         TrafficSelector tf = DefaultTrafficSelector.builder()
-                .matchEthSrc(src)
-                .matchEthDst(dst)
+                .matchEthSrc(srcDstPair.getSrcMac())
+                .matchEthDst(srcDstPair.getDstMac())
+                .matchEthType(TYPE_IPV4)
+                .matchIPProtocol(IPv4.PROTOCOL_TCP)
+                .matchTcpSrc(TpPort.tpPort(srcDstPair.getSrcPort()))
+                .matchTcpDst(TpPort.tpPort(srcDstPair.getDstPort()))
                 .matchInPort(inPort)
                 .build();
 

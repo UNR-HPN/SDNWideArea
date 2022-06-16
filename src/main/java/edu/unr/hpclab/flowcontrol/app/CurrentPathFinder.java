@@ -25,8 +25,8 @@ public class CurrentPathFinder {
     public static List<Link> getCurrentPath(SrcDstPair sd) {
         List<FlowEntry> associatedFEList = findAssociatedFlowEntryList(sd);
 
-        Host srcHost = hostService.getHost(HostId.hostId(sd.getSrc()));
-        Host dstHost = hostService.getHost(HostId.hostId(sd.getDst()));
+        Host srcHost = hostService.getHost(HostId.hostId(sd.getSrcMac()));
+        Host dstHost = hostService.getHost(HostId.hostId(sd.getDstMac()));
         DeviceId srcId = srcHost.location().deviceId();
         DeviceId dstId = dstHost.location().deviceId();
 
@@ -73,7 +73,7 @@ public class CurrentPathFinder {
             if (src == null || dst == null) {
                 continue;
             }
-            if (sd.getSrc().equals(src) && sd.getDst().equals(dst)) {
+            if (sd.getSrcMac().equals(src) && sd.getDstMac().equals(dst)) {
                 associatedFEList.add(fe);
             }
         }

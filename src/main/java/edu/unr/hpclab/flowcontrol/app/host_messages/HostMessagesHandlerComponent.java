@@ -84,19 +84,25 @@ public class HostMessagesHandlerComponent {
             Ethernet inPkt = context.inPacket().parsed();
             if (inPkt.getEtherType() == Ethernet.TYPE_IPV4) {
                 IPv4 packet = (IPv4) inPkt.getPayload();
-                if (packet.getProtocol() == IPv4.PROTOCOL_ICMP && ((ICMP) packet.getPayload()).getIcmpType() == 100) {
-                    SrcDstPair srcDstPair = new SrcDstPair(inPkt.getSourceMAC(), inPkt.getDestinationMAC());
+                if (packet.getProtocol() == IPv4.PROTOCOL_ICMP && (((ICMP) packet.getPayload()).getIcmpType() == 100)) {
                     try {
                         byte[] data = ((Data) (packet.getPayload()).getPayload()).getData();
                         String message = new String(data, StandardCharsets.UTF_8);
-                        log.info(message);
-                        HostMessageHandler.parseAndAct(srcDstPair, message);
+                        String[] tokens = message.strip().split(":");
+                        SrcDstPair srcDstPair = getSrcDstPair(inPkt, tokens[tokens.length - 1]);
+                        HostMessageHandler.parseAndAct(srcDstPair, tokens[0], tokens[1]);
                         context.block();
                     } catch (Exception e) {
-                        log.info("", e);
+                        log.error("", e);
                     }
                 }
             }
         }
+
+        private SrcDstPair getSrcDstPair(Ethernet inPkt, String portS) {
+            int port = Integer.parseInt(portS);
+            return new SrcDstPair(inPkt.getSourceMAC(), inPkt.getDestinationMAC(), port, port);
+        }
+
     }
 }

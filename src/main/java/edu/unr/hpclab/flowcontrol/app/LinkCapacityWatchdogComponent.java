@@ -64,10 +64,11 @@ public class LinkCapacityWatchdogComponent {
     EventuallyConsistentMap<String, Long> PREV_FLOW_STATS;
     EventuallyConsistentMap<String, Long> PREV_PORT_STATS;
     private String appName;
+    InternalDeviceListener internalDeviceListener = new InternalDeviceListener();
 
     @Activate
     protected void activate() {
-        deviceService.addListener(new InternalDeviceListener());
+        deviceService.addListener(internalDeviceListener);
         cfgService.registerProperties(getClass());
         log.info("Service Started");
 //        timer.schedule(new Task(), TimeUnit.SECONDS.toMillis(Util.POLL_FREQ), TimeUnit.SECONDS.toMillis(Util.POLL_FREQ));
@@ -102,6 +103,7 @@ public class LinkCapacityWatchdogComponent {
         cfgService.unregisterProperties(getClass(), false);
         log.info("Stopped");
         timer.cancel();
+        deviceService.removeListener(internalDeviceListener);
     }
 
     @Modified

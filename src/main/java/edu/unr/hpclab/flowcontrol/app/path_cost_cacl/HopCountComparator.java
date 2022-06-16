@@ -11,6 +11,9 @@ public class HopCountComparator implements Comparator<Path> {
         return INSTANCE;
     }
 
+    private HopCountComparator() {
+    }
+
     @Override
     public int compare(Path path1, Path path2) {
         return Integer.compare(path1.links().size() - 1, path2.links().size() - 1);

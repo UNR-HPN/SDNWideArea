@@ -9,10 +9,13 @@ public class MaxSharedAvailableCapacityFunction extends PathCalculator implement
         return INSTANCE;
     }
 
+    private MaxSharedAvailableCapacityFunction() {
+    }
+
     @Override
     public MyPath apply(MyPath path) {
-        path = new SharedCapacityPathWeightFunction().apply(path);
-        path = new AvailableCapacityPathWeightFunction().apply(path);
+        path = SharedCapacityPathWeightFunction.instance().apply(path);
+        path = AvailableCapacityPathWeightFunction.instance().apply(path);
         long sharedCapacity = path.getSharedRate();
         long availableCapacity = path.getAvailableRate();
         long max = Math.max(sharedCapacity, availableCapacity);

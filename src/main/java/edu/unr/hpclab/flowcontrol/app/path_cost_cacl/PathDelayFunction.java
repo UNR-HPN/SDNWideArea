@@ -11,6 +11,8 @@ public class PathDelayFunction extends PathCalculator implements UnaryOperator<M
         return INSTANCE;
     }
 
+    private PathDelayFunction() {}
+
     @Override
     public MyPath apply(MyPath myPath) {
         double delay = myPath.links().stream().mapToDouble(LinksInformationDatabase::getLatestLinkDelay).sum();
