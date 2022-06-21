@@ -22,10 +22,12 @@ import org.onosproject.openflow.controller.OpenFlowSwitch;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.EventuallyConsistentMap;
 import org.onosproject.store.service.WallClockTimestamp;
-import org.projectfloodlight.openflow.protocol.OFEchoReply;
-import org.projectfloodlight.openflow.protocol.OFEchoRequest;
 import org.projectfloodlight.openflow.protocol.OFMessage;
+import org.projectfloodlight.openflow.protocol.OFPortStatsRequest;
+import org.projectfloodlight.openflow.protocol.OFStatsReply;
+import org.projectfloodlight.openflow.protocol.OFStatsType;
 import org.projectfloodlight.openflow.protocol.OFType;
+import org.projectfloodlight.openflow.types.OFPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,38 +36,46 @@ import java.nio.ByteBuffer;
 
 import static edu.unr.hpclab.flowcontrol.app.Services.*;
 
-public class DelayCalculator {
-    private static final DelayCalculator instance = new DelayCalculator();
-    private final Logger logger = LoggerFactory.getLogger(DelayCalculator.class);
-    private final EventuallyConsistentMap<DeviceId, Long> controllerToSwitchDelayMap = storageService.<DeviceId, Long>eventuallyConsistentMapBuilder()
+public class DelayCalculatorSingelton {
+    private static final long XID = 741997;
+    private static DelayCalculatorSingelton instance = null;
+    private final Logger logger = LoggerFactory.getLogger(DelayCalculatorSingelton.class);
+    private final Services services = Services.getInstance();
+    private final EventuallyConsistentMap<DeviceId, Long> controllerToSwitchDelayMap = services.storageService.<DeviceId, Long>eventuallyConsistentMapBuilder()
             .withName("DELAY_TO_SWITCH_MAP").withTimestampProvider((k, v) -> new WallClockTimestamp())
+            .withTombstonesDisabled()
             .withSerializer(KryoNamespace.newBuilder().register(KryoNamespaces.API).register(Long.class, DeviceId.class))
+            .withFasterConvergence()
             .build();
 
-    private DelayCalculator() {
+
+    private DelayCalculatorSingelton() {
     }
 
-    public static DelayCalculator getInstance() {   //Singleton
+    public static DelayCalculatorSingelton getInstance() {   //Singleton
+        if (instance == null) {
+            instance = new DelayCalculatorSingelton();
+        }
         return instance;
     }
 
     public void testLinksLatency() {
-        testLinksLatency(linkService.getLinks(), true);
+        testLinksLatency(services.linkService.getLinks(), true);
     }
 
     public void testLinksLatency(Iterable<Link> links, boolean isBase) {
-        Services.getExecutor(ThreadsEnum.DELAY_CALCULATOR).submit(() -> testLinkLatencyThreaded(links, isBase));
+        services.getExecutor(ThreadsEnum.DELAY_CALCULATOR).submit(() -> testLinkLatencyThreaded(links, isBase));
     }
 
     private void testLinkLatencyThreaded(Iterable<Link> links, boolean isBase) {
         Thread currentThread = Thread.currentThread();
         InBoundProcessor inBoundProcessor = new InBoundProcessor(currentThread);
         InternalOpenFlowEventListener listener = new InternalOpenFlowEventListener(currentThread);
-        packetService.addProcessor(inBoundProcessor, 0);
-        openFlowControllerService.addEventListener(listener);
+        services.packetService.addProcessor(inBoundProcessor, 0);
+        services.openFlowControllerService.addEventListener(listener);
         testLinksLatency(links, currentThread, isBase);
-        openFlowControllerService.removeEventListener(listener);
-        packetService.removeProcessor(inBoundProcessor);
+        services.openFlowControllerService.removeEventListener(listener);
+        services.packetService.removeProcessor(inBoundProcessor);
     }
 
 
@@ -89,7 +99,6 @@ public class DelayCalculator {
 
     private void sendProbingPacket(Link link, boolean isBase) {
         TrafficTreatment treatment = DefaultTrafficTreatment.builder().setOutput(link.src().port()).build();
-
         Ethernet ethPacket = new Ethernet();
         ethPacket.setSourceMACAddress(MacAddress.valueOf("00:00:01:01:01:01"));
         ethPacket.setDestinationMACAddress(MacAddress.valueOf("00:00:02:02:02:02"));
@@ -112,16 +121,19 @@ public class DelayCalculator {
             logger.error("", e);
         }
         OutboundPacket packet = new DefaultOutboundPacket(link.src().deviceId(), treatment, ByteBuffer.wrap(ethPacket.serialize()));
-        packetService.emit(packet);
+        services.packetService.emit(packet);
     }
 
     private void sendEcho(ConnectPoint connectPoint) {
-        Dpid srcDevice = Dpid.dpid(connectPoint.deviceId().uri());
-        OpenFlowSwitch sw = openFlowControllerService.getSwitch(srcDevice);
+        Dpid device = Dpid.dpid(connectPoint.deviceId().uri());
+        OpenFlowSwitch sw = services.openFlowControllerService.getSwitch(device);
         if (sw == null) {
             return;
         }
-        OFEchoRequest statsRequest = sw.factory().echoRequest(Util.longToByteArray(System.nanoTime()));
+        OFPortStatsRequest statsRequest = sw.factory().buildPortStatsRequest().setPortNo(OFPort.ANY)
+                .setXid(XID)
+                .build();
+        controllerToSwitchDelayMap.put(connectPoint.deviceId(), System.nanoTime());
         sw.sendMsg(statsRequest);
     }
 
@@ -152,30 +164,29 @@ public class DelayCalculator {
         public void process(PacketContext context) {
             InboundPacket pkt = context.inPacket();
             Ethernet ethPkt = pkt.parsed();
-
             if (ethPkt.getEtherType() == Ethernet.TYPE_IPV4) {
                 IPv4 p = (IPv4) ethPkt.getPayload();
                 if (p.getSourceAddress() == IPv4.toIPv4Address("10.10.10.10")) {
                     try {
-                        byte[] data = ((Data) p.getPayload()).getData();
-                        Info info = (Info) Util.toObject(data);
-                        long receive_time = System.nanoTime();
-                        long sent_time = info.time;
-                        Link link = linkService.getLink(ConnectPoint.fromString(info.srcId), ConnectPoint.fromString(info.dstId));
-                        double x = (controllerToSwitchDelayMap.get(link.src().deviceId()) * 1.0) + (controllerToSwitchDelayMap.get(link.dst().deviceId()) * 1.0);
-                        double delay = ((receive_time - sent_time) - x / 2) / 1e6;
-                        if (info.isBase) {
-                            LinksInformationDatabase.setLinkBaseDelay(link, delay);
-                        } else {
-                            LinksInformationDatabase.updateLinkLatestDelay(link, delay);
-                        }
-                        logger.debug("Delay for link {} is {}", Util.formatLink(link), delay);
-                        context.block();
                         synchronized (thread) {
+                            byte[] data = ((Data) p.getPayload()).getData();
+                            Info info = (Info) Util.toObject(data);
+                            long receive_time = System.nanoTime();
+                            long sent_time = info.time;
+                            Link link = services.linkService.getLink(ConnectPoint.fromString(info.srcId), ConnectPoint.fromString(info.dstId));
+                            double x = (controllerToSwitchDelayMap.remove(link.src().deviceId()) * 1.0) + (controllerToSwitchDelayMap.remove(link.dst().deviceId()) * 1.0);
+                            double delay = ((receive_time - sent_time) - x / 2) / 1e6;
+                            if (info.isBase) {
+                                LinksInformationDatabase.setLinkBaseDelay(link, delay);
+                            } else {
+                                LinksInformationDatabase.updateLinkLatestDelay(link, delay);
+                            }
+                            logger.info("Delay for link {} is {}", Util.formatLink(link), delay);
+                            context.block();
                             thread.notify();
                         }
                     } catch (Exception e) {
-                        logger.info("", e);
+                        logger.error("", e);
                     }
                 }
             }
@@ -191,10 +202,15 @@ public class DelayCalculator {
 
         @Override
         public void handleMessage(Dpid dpid, OFMessage msg) {
-            if (msg.getType().equals(OFType.ECHO_REPLY)) {
-                controllerToSwitchDelayMap.put(DeviceId.deviceId(Dpid.uri(dpid)), System.nanoTime() - Util.byteArrayToLong(((OFEchoReply) msg).getData()));
-                synchronized (thread) {
-                    thread.notify();
+            synchronized (thread) {
+                if (msg.getType().equals(OFType.STATS_REPLY)) {
+                    OFStatsReply reply = (OFStatsReply) msg;
+                    if (reply.getStatsType().equals(OFStatsType.PORT) && reply.getXid() == XID) {
+                        DeviceId deviceId = DeviceId.deviceId(Dpid.uri(dpid));
+                        long sentTime = controllerToSwitchDelayMap.remove(deviceId);
+                        controllerToSwitchDelayMap.put(deviceId, System.nanoTime() - sentTime);
+                        thread.notify();
+                    }
                 }
             }
         }

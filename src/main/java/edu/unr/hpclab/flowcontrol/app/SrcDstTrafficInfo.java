@@ -23,12 +23,11 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 
-import static edu.unr.hpclab.flowcontrol.app.Services.appId;
-import static edu.unr.hpclab.flowcontrol.app.Services.flowRuleService;
-
 
 public class SrcDstTrafficInfo {
     private final Logger log = LoggerFactory.getLogger(getClass());
+    private final Services services = Services.getInstance();
+
     private final SrcDstPair srcDstPair;
     private final long timeStarted;
     private long requestedRate;
@@ -187,7 +186,7 @@ public class SrcDstTrafficInfo {
                     && ((TcpPortCriterion) fe.selector().getCriterion(Criterion.Type.TCP_SRC)).tcpPort().toInt() == srcDstPair.getSrcPort()
                     && ((TcpPortCriterion) fe.selector().getCriterion(Criterion.Type.TCP_DST)).tcpPort().toInt() == srcDstPair.getDstPort();
 
-            Optional<FlowEntry> feo = StreamSupport.stream(flowRuleService.getFlowEntriesById(appId).spliterator(), false)
+            Optional<FlowEntry> feo = StreamSupport.stream(services.flowRuleService.getFlowEntriesById(services.appId).spliterator(), false)
                     .filter(f -> f.deviceId().equals(host.elementId()))
                     .filter(filter).findFirst();
 

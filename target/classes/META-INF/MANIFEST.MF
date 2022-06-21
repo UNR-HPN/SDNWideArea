@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Bnd-LastModified: 1655339985112
+Bnd-LastModified: 1655844566664
 Build-Jdk: 11.0.15
 Built-By: oabuhamdan
 Bundle-Description: ONOS OSGi bundle archetype
@@ -55,7 +55,8 @@ Import-Package: com.fasterxml.jackson.databind;version="[2.11,3)",com.fa
  .7,3)",org.onosproject.store;version="[2.7,3)",org.onosproject.store.se
  rializers;version="[2.7,3)",org.onosproject.store.service;version="[2.7
  ,3)",org.osgi.service.component;version="[1.4,2)",org.projectfloodlight
- .openflow.protocol;version="[3.2,4)",org.slf4j;version="[1.7,2)"
+ .openflow.protocol;version="[3.2,4)",org.projectfloodlight.openflow.typ
+ es;version="[3.2,4)",org.slf4j;version="[1.7,2)"
 Karaf-Commands: edu.unr.hpclab.flowcontrol.app
 Provide-Capability: osgi.service;objectClass:List<String>="edu.unr.hpcla
  b.flowcontrol.app.CongestionListenerComponent",osgi.service;objectClass

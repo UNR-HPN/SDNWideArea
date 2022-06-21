@@ -1,12 +1,7 @@
 package edu.unr.hpclab.flowcontrol.app;
 
 
-import org.onlab.packet.Ethernet;
-import org.onlab.packet.ICMP;
-import org.onlab.packet.IPv4;
 import org.onlab.packet.MacAddress;
-import org.onlab.packet.TCP;
-import org.onlab.packet.UDP;
 import org.onlab.util.DataRateUnit;
 import org.onosproject.cfg.ConfigProperty;
 import org.onosproject.net.DeviceId;
@@ -41,15 +36,14 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static edu.unr.hpclab.flowcontrol.app.Services.*;
-
 
 public class Util {
     static final Logger log = LoggerFactory.getLogger(Util.class);
+    private final static Services services = Services.getInstance();
     static int POLL_FREQ = getPollFreq();
 
     private static int getPollFreq() {
-        ConfigProperty pollFreq = cfgService.getProperty("org.onosproject.provider.of.device.impl.OpenFlowDeviceProvider", "portStatsPollFrequency");
+        ConfigProperty pollFreq = services.cfgService.getProperty("org.onosproject.provider.of.device.impl.OpenFlowDeviceProvider", "portStatsPollFrequency");
         if (pollFreq == null) {
             return 5;
         } else {
@@ -58,7 +52,7 @@ public class Util {
     }
 
     public static List<PortNumber> getCongestedIngressPorts(DeviceId deviceId, int count) {
-        Stream<PortNumber> stream = deviceService.getPortDeltaStatistics(deviceId).stream().
+        Stream<PortNumber> stream = services.deviceService.getPortDeltaStatistics(deviceId).stream().
                 sorted(Comparator.comparing(PortStatistics::packetsReceived).reversed()).map(PortStatistics::portNumber);
 
         if (count > 0) {
@@ -71,7 +65,7 @@ public class Util {
     public static Set<PortNumber> getCongestedIngressPortsToLink(DeviceId deviceId, int count, Link link) {
         List<PortNumber> ingressCongestedPorts = getCongestedIngressPorts(deviceId, count);
         Set<PortNumber> ingressCongestedPortsToOutput = new HashSet<>();
-        for (FlowEntry fe : flowRuleService.getFlowEntries(deviceId)) {
+        for (FlowEntry fe : services.flowRuleService.getFlowEntries(deviceId)) {
             for (Instruction instruction : fe.treatment().immediate()) {
                 if (instruction instanceof Instructions.OutputInstruction && ((Instructions.OutputInstruction) instruction).port().equals(link.src().port())) {
                     PortNumber inPort = ((PortCriterion) fe.selector().getCriterion(Criterion.Type.IN_PORT)).port();
@@ -87,7 +81,7 @@ public class Util {
     public static MacAddress getDstMacForHostPackets(Host host, DeviceId deviceId) {
         MacAddress dst = null;
         outer:
-        for (FlowEntry fe : flowRuleService.getFlowEntries(deviceId)) {
+        for (FlowEntry fe : services.flowRuleService.getFlowEntries(deviceId)) {
             for (Criterion cr : fe.selector().criteria()) {
                 if (cr.type().equals(Criterion.Type.ETH_SRC) && ((EthCriterion) cr).mac().equals(host.mac())) {
                     dst = ((EthCriterion) fe.selector().getCriterion(Criterion.Type.ETH_DST)).mac();
@@ -122,17 +116,17 @@ public class Util {
 
 
     public static Host getHostByMac(MacAddress macAddress) {
-        return hostService.getHostsByMac(macAddress).iterator().next();
+        return services.hostService.getHostsByMac(macAddress).iterator().next();
     }
 
     public static void setBandwidthsToLinks() {
-        List<Integer> bandwidths = IntStream.rangeClosed(1, linkService.getLinkCount()).mapToObj(x -> x * 50).collect(Collectors.toList());
+        List<Integer> bandwidths = IntStream.rangeClosed(1, services.linkService.getLinkCount()).mapToObj(x -> x * 50).collect(Collectors.toList());
         Iterator<Integer> bandwidthsIterator = bandwidths.iterator();
-        linkService.getLinks().forEach(l -> {
+        services.linkService.getLinks().forEach(l -> {
             long bandwidth = bandwidthsIterator.next() * 1024L * 1024L;
             LinkKey linkKey = LinkKey.linkKey(l);
             log.debug("Bandwidth for link {} is {} MB", linkKey, bandwidth / (1024 * 1024));
-            configService.addConfig(linkKey, BasicLinkConfig.class).bandwidth(bandwidth).apply();
+            services.configService.addConfig(linkKey, BasicLinkConfig.class).bandwidth(bandwidth).apply();
         });
     }
 

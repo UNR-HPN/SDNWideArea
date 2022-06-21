@@ -18,14 +18,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.function.Supplier;
 
-import static edu.unr.hpclab.flowcontrol.app.Services.appId;
-import static edu.unr.hpclab.flowcontrol.app.Services.flowObjectiveService;
 import static org.onlab.packet.Ethernet.TYPE_IPV4;
 
 public class PathFinderAndRuleInstaller {
+    private final static Services services = Services.getInstance();
     static Logger log = LoggerFactory.getLogger(CongestionHelper.class);
 
     public static Path applyAndGetPath(SrcDstPair srcDstPair) {
@@ -37,19 +34,15 @@ public class PathFinderAndRuleInstaller {
     }
 
     public static MyPath applyAndGetPath(SrcDstTrafficInfo srcDstTrafficInfo) {
-        Supplier<RuntimeException> exceptionSupplier = () -> new RuntimeException(String.format("No path found for %s", srcDstTrafficInfo.getSrcDstPair()));
         List<MyPath> paths;
         if (srcDstTrafficInfo.getRequestedRate() > 0) {
             if (srcDstTrafficInfo.getRequestedDelay() > 0) {
-                paths = Optional.ofNullable(PathCalculator.getPathsSortedByRateDelayFit(srcDstTrafficInfo))
-                        .orElseThrow(exceptionSupplier);
+                paths = PathCalculator.getPathsSortedByRateDelayFit(srcDstTrafficInfo);
             } else {
-                paths = Optional.ofNullable(PathCalculator.getPathsSortedByRateFit(srcDstTrafficInfo))
-                        .orElseThrow(exceptionSupplier);
+                paths = PathCalculator.getPathsSortedByRateFit(srcDstTrafficInfo);
             }
         } else {
-            paths = Optional.ofNullable(PathCalculator.getPathsByMaxSharedAvailableCapacity(srcDstTrafficInfo))
-                    .orElseThrow(exceptionSupplier);
+            paths = PathCalculator.getPathsByMaxSharedAvailableCapacity(srcDstTrafficInfo);
         }
         MyPath path = paths.get(0);
         installPathRules(srcDstTrafficInfo.getSrcDstPair(), path);
@@ -89,10 +82,10 @@ public class PathFinderAndRuleInstaller {
                 .withSelector(tf)
                 .withPriority(10)
                 .withFlag(ForwardingObjective.Flag.VERSATILE)
-                .fromApp(appId)
+                .fromApp(services.appId)
                 .makeTemporary(Util.POLL_FREQ)
                 .add();
 
-        flowObjectiveService.forward(dId, forwardingObjective);
+        services.flowObjectiveService.forward(dId, forwardingObjective);
     }
 }

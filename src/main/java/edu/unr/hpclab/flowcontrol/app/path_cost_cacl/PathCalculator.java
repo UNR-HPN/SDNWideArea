@@ -2,6 +2,7 @@ package edu.unr.hpclab.flowcontrol.app.path_cost_cacl;
 
 import edu.unr.hpclab.flowcontrol.app.CurrentTrafficDataBase;
 import edu.unr.hpclab.flowcontrol.app.LinksInformationDatabase;
+import edu.unr.hpclab.flowcontrol.app.Services;
 import edu.unr.hpclab.flowcontrol.app.SrcDstPair;
 import edu.unr.hpclab.flowcontrol.app.SrcDstTrafficInfo;
 import org.apache.commons.lang3.tuple.Pair;
@@ -24,11 +25,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static edu.unr.hpclab.flowcontrol.app.Services.pathService;
 import static org.onosproject.net.HostId.hostId;
 
 public abstract class PathCalculator {
     protected final ProviderId PID = new ProviderId("flowcontrol", "edu.unr.hpclab.flowcontrol", true);
+    private static final Services services = Services.getInstance();
 
     public static List<MyPath> getPathsSortedByRateFit(SrcDstTrafficInfo srcDstTrafficInfo) {
         Function<MyPath, MyPath> function = AvailableCapacityPathWeightFunction.instance();
@@ -53,6 +54,9 @@ public abstract class PathCalculator {
 
     public static List<MyPath> getMyPathsList(SrcDstTrafficInfo srcDstTrafficInfo, Function<MyPath, MyPath> function, Comparator<MyPath> comparator) {
         Collection<MyPath> paths = getKShortestPaths(srcDstTrafficInfo.getSrcDstPair());
+        if (paths.isEmpty()) {
+            throw new RuntimeException(String.format("No path found for %s", srcDstTrafficInfo.getSrcDstPair()));
+        }
         return paths.stream()
                 .map(function)
                 .sorted(comparator)
@@ -61,7 +65,7 @@ public abstract class PathCalculator {
 
 
     public static List<MyPath> getKShortestPaths(SrcDstPair srcDstPair) {
-        Set<Path> paths = pathService.getKShortestPaths(hostId(srcDstPair.getSrcMac()), hostId(srcDstPair.getDstMac())).collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Path> paths = services.pathService.getKShortestPaths(hostId(srcDstPair.getSrcMac()), hostId(srcDstPair.getDstMac())).collect(Collectors.toCollection(LinkedHashSet::new));
         if (paths.isEmpty()) {
             return new ArrayList<>();
         }
@@ -83,6 +87,7 @@ public abstract class PathCalculator {
         });
         return Pair.of(totalNum.intValue(), totalCap.longValue());
     }
+
     protected Pair<Integer, Long> getCurrentRatesOfActiveFlows(Link link) {
         AtomicLong totalCap = new AtomicLong(0L);
         AtomicInteger totalNum = new AtomicInteger(0);

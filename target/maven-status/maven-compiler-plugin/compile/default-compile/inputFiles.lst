@@ -20,15 +20,14 @@
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/BottleneckDetector.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/path_cost_cacl/PathChangesComparator.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/EnsureUpToDateLinksCapacityComponent.java
-/home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/SatisfactionCalculator.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/path_cost_cacl/PathDelayFunction.java
-/home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/DelayCalculator.java
+/home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/DelayCalculatorSingelton.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/host_messages/HostMessagesHandlerComponent.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/host_messages/HostMessageType.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/SolutionFinder.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/path_cost_cacl/SharedCapacityPathWeightFunction.java
-/home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/path_cost_cacl/DelayPathWeightFunction.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/path_cost_cacl/ActiveFlowPathComparator.java
+/home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/ThreadsEnum.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/CongestedLinkInfo.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/LinksInformationDatabase.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/LinkCapacityWatchdogComponent.java
@@ -44,3 +43,4 @@
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/SrcDstTrafficInfo.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/host_messages/HostMessageHandler.java
 /home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/CurrentPathFinder.java
+/home/oabuhamdan/onos/my_onos_apps/flowcontrol/src/main/java/edu/unr/hpclab/flowcontrol/app/path_cost_cacl/MaxSharedAvailableCapacityPathComparator.java

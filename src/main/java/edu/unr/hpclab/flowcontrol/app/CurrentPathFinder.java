@@ -19,14 +19,14 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import static edu.unr.hpclab.flowcontrol.app.Services.*;
-
 public class CurrentPathFinder {
+    private static final Services services = Services.getInstance();
+
     public static List<Link> getCurrentPath(SrcDstPair sd) {
         List<FlowEntry> associatedFEList = findAssociatedFlowEntryList(sd);
 
-        Host srcHost = hostService.getHost(HostId.hostId(sd.getSrcMac()));
-        Host dstHost = hostService.getHost(HostId.hostId(sd.getDstMac()));
+        Host srcHost = services.hostService.getHost(HostId.hostId(sd.getSrcMac()));
+        Host dstHost = services.hostService.getHost(HostId.hostId(sd.getDstMac()));
         DeviceId srcId = srcHost.location().deviceId();
         DeviceId dstId = dstHost.location().deviceId();
 
@@ -44,7 +44,7 @@ public class CurrentPathFinder {
                     break;
                 }
             }
-            Set<Link> egressLinkSet = linkService.getDeviceEgressLinks(dId);
+            Set<Link> egressLinkSet = services.linkService.getDeviceEgressLinks(dId);
             for (Link l : egressLinkSet) {
                 if (l.src().port().equals(outPortNum)) {
                     dId = l.dst().deviceId();
@@ -82,7 +82,7 @@ public class CurrentPathFinder {
 
     public static Set<FlowEntry> getAllCurrentFlowEntries() {
         Set<FlowEntry> flowEntries = new LinkedHashSet<>();
-        for (Link l : linkService.getLinks()) {
+        for (Link l : services.linkService.getLinks()) {
             flowEntries.addAll(getFlowEntries(l.src()));
         }
         return flowEntries;
@@ -90,7 +90,7 @@ public class CurrentPathFinder {
 
     public static Set<FlowEntry> getFlowEntries(ConnectPoint egress) {
         ImmutableSet.Builder<FlowEntry> builder = ImmutableSet.builder();
-        flowRuleService.getFlowEntries(egress.deviceId()).forEach(r -> {
+        services.flowRuleService.getFlowEntries(egress.deviceId()).forEach(r -> {
             r.treatment().allInstructions().forEach(i -> {
                 if (i.type() == Instruction.Type.OUTPUT) {
                     if (((Instructions.OutputInstruction) i).port().equals(egress.port())) {

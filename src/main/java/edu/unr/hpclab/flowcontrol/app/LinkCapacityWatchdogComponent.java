@@ -59,6 +59,8 @@ import static org.onosproject.net.device.DeviceEvent.Type.PORT_STATS_UPDATED;
                 "appName=Some Default String Value",
         })
 public class LinkCapacityWatchdogComponent {
+    private final Services services = Services.getInstance();
+
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final Timer timer = new Timer();
     EventuallyConsistentMap<String, Long> PREV_FLOW_STATS;
@@ -68,8 +70,8 @@ public class LinkCapacityWatchdogComponent {
 
     @Activate
     protected void activate() {
-        deviceService.addListener(internalDeviceListener);
-        cfgService.registerProperties(getClass());
+        services.deviceService.addListener(internalDeviceListener);
+        services.cfgService.registerProperties(getClass());
         log.info("Service Started");
 //        timer.schedule(new Task(), TimeUnit.SECONDS.toMillis(Util.POLL_FREQ), TimeUnit.SECONDS.toMillis(Util.POLL_FREQ));
 
@@ -78,13 +80,13 @@ public class LinkCapacityWatchdogComponent {
                 .register(String.class)
                 .register(Long.class);
 
-        PREV_FLOW_STATS = storageService.<String, Long>eventuallyConsistentMapBuilder()
+        PREV_FLOW_STATS = services.storageService.<String, Long>eventuallyConsistentMapBuilder()
                 .withName("PREV_FLOW_STATS")
                 .withTimestampProvider((k, v) -> new WallClockTimestamp())
                 .withSerializer(mySerializer)
                 .build();
 
-        PREV_PORT_STATS = storageService.<String, Long>eventuallyConsistentMapBuilder()
+        PREV_PORT_STATS = services.storageService.<String, Long>eventuallyConsistentMapBuilder()
                 .withName("PREV_PORT_STATS")
                 .withSerializer(mySerializer)
                 .withTimestampProvider((k, v) -> new WallClockTimestamp())
@@ -100,10 +102,10 @@ public class LinkCapacityWatchdogComponent {
 
     @Deactivate
     protected void deactivate() {
-        cfgService.unregisterProperties(getClass(), false);
+       services.cfgService.unregisterProperties(getClass(), false);
         log.info("Stopped");
         timer.cancel();
-        deviceService.removeListener(internalDeviceListener);
+        services.deviceService.removeListener(internalDeviceListener);
     }
 
     @Modified
@@ -115,22 +117,22 @@ public class LinkCapacityWatchdogComponent {
         log.info("Reconfigured");
     }
 
-    private static class InternalDeviceListener implements DeviceListener {
+    private class InternalDeviceListener implements DeviceListener {
         @Override
         public void event(DeviceEvent event) {
             DeviceEvent.Type type = event.type();
             DeviceId deviceId = event.subject().id();
             if (type == PORT_STATS_UPDATED) {
-                List<PortStatistics> portStatisticsList = deviceService.getPortDeltaStatistics(deviceId);
+                List<PortStatistics> portStatisticsList = services.deviceService.getPortDeltaStatistics(deviceId);
                 portStatisticsList.forEach(portStatistics -> {
                     long bytesReceived = Util.getBytesReceivingRate(portStatistics);
                     long bytesSent = Util.getBytesSendingRate(portStatistics);
                     if (bytesReceived > 0) {
-                        Set<Link> ingressLinks = linkService.getIngressLinks(new ConnectPoint(deviceId, portStatistics.portNumber()));
+                        Set<Link> ingressLinks = services.linkService.getIngressLinks(new ConnectPoint(deviceId, portStatistics.portNumber()));
                         LinksInformationDatabase.updateLinksLatestRate(ingressLinks, bytesReceived);
                     }
                     if (bytesSent > 0) {
-                        Set<Link> egressLinks = linkService.getEgressLinks(new ConnectPoint(deviceId, portStatistics.portNumber()));
+                        Set<Link> egressLinks = services.linkService.getEgressLinks(new ConnectPoint(deviceId, portStatistics.portNumber()));
                         LinksInformationDatabase.updateLinksLatestRate(egressLinks, bytesSent);
                     }
                 });

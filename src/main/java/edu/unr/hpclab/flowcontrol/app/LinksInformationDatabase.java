@@ -18,13 +18,12 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
-import static edu.unr.hpclab.flowcontrol.app.Services.linkService;
-import static edu.unr.hpclab.flowcontrol.app.Services.storageService;
-
 
 @Component(immediate = true, service = {LinksInformationDatabase.class})
 public class LinksInformationDatabase {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinksInformationDatabase.class);
+    private final Services services = Services.getInstance();
+
     private static EventuallyConsistentMap<Link, TimedLinkInformation> LINK_INFORMATION_MAP;
 
     private static TimedLinkInformation getTimedLinkInformation(Link link) {
@@ -100,13 +99,13 @@ public class LinksInformationDatabase {
         KryoNamespace.Builder mySerializer = KryoNamespace.newBuilder().register(KryoNamespaces.API).register(Link.class)
                 .register(FixedSizeQueue.class).register(ConnectPoint.class).register(TimedLinkInformation.class).register(Long.class);
 
-        LINK_INFORMATION_MAP = storageService.<Link, TimedLinkInformation>eventuallyConsistentMapBuilder().withName("link_bandwidth_map").withTimestampProvider((k, v) -> new WallClockTimestamp()).withSerializer(mySerializer).build();
+        LINK_INFORMATION_MAP = services.storageService.<Link, TimedLinkInformation>eventuallyConsistentMapBuilder().withName("link_bandwidth_map").withTimestampProvider((k, v) -> new WallClockTimestamp()).withSerializer(mySerializer).build();
 
 
-        for (Link link : linkService.getLinks()) {
+        for (Link link : services.linkService.getLinks()) {
             LINK_INFORMATION_MAP.put(link, new TimedLinkInformation(link));
         }
-        DelayCalculator.getInstance().testLinksLatency();
+        DelayCalculatorSingelton.getInstance().testLinksLatency();
     }
 
     private static class TimedLinkInformation { // Timed Capacity: Capacity of the link at a certain time

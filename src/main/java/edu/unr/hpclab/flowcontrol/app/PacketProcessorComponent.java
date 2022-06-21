@@ -38,8 +38,6 @@ import java.util.Dictionary;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-import static edu.unr.hpclab.flowcontrol.app.Services.cfgService;
-import static edu.unr.hpclab.flowcontrol.app.Services.packetService;
 import static org.onlab.util.Tools.get;
 
 /**
@@ -51,6 +49,8 @@ import static org.onlab.util.Tools.get;
                 "appName=Some Default String Value",
         })
 public class PacketProcessorComponent {
+    private final Services services = Services.getInstance();
+
     private final Logger log = LoggerFactory.getLogger(getClass());
     PacketProcessor p = new InternalPacketProcessor();
     private String appName;
@@ -58,16 +58,16 @@ public class PacketProcessorComponent {
     @Activate
     protected void activate() {
 
-        packetService.addProcessor(p, 1);
+        services.packetService.addProcessor(p, 1);
 
-        cfgService.registerProperties(getClass());
+        services.cfgService.registerProperties(getClass());
         log.info("Service Started");
     }
 
     @Deactivate
     protected void deactivate() {
-        packetService.removeProcessor(p);
-        cfgService.unregisterProperties(getClass(), false);
+        services.packetService.removeProcessor(p);
+        services.cfgService.unregisterProperties(getClass(), false);
         log.info("Stopped");
     }
 
@@ -94,33 +94,35 @@ public class PacketProcessorComponent {
             Ethernet inPkt = context.inPacket().parsed();
             if (inPkt.getEtherType() == Ethernet.TYPE_IPV4) {
                 SrcDstPair srcDstPair = getSrcDstPair(inPkt);
-                if (srcDstPair == null) {
-                    return;
+                try {
+                    if (srcDstPair == null) {
+                        throw new RuntimeException("Neither TCP nor UDP flow or a Flow with a reserved port");
+                    }
+                    // Ignore the ACK traffic
+                    if (CurrentTrafficDataBase.getCurrentTrafficValue(srcDstPair.reversed()) != null) {
+                        throw new RuntimeException(String.format("This is a ACK traffic %s", srcDstPair));
+                    }
+                    log.info("New Flow Joining {}", srcDstPair);
+                    if (cache.getIfPresent(srcDstPair) != null) {
+                        context.block();
+                        throw new RuntimeException("Packet Processor: Already dealt with this TCP packet");
+                    } else {
+                        cache.put(srcDstPair, 1L);
+                    }
+
+                    log.debug("**** {} -> {} ****", inPkt.getSourceMAC(), inPkt.getDestinationMAC());
+                    long requestedRate = HostMessageHandler.getLatestMessage(srcDstPair, HostMessageType.RATE_REQUEST).longValue();
+                    double requestedDelay = HostMessageHandler.getLatestMessage(srcDstPair, HostMessageType.DELAY_REQUEST).doubleValue();
+                    log.info("Requested Rate {}, Requested Delay {} for {}", requestedRate, requestedDelay, srcDstPair);
+                    SrcDstTrafficInfo srcDstTrafficInfo = new SrcDstTrafficInfo(srcDstPair, null, requestedRate, requestedDelay);
+                    MyPath path = PathFinderAndRuleInstaller.applyAndGetPath(srcDstTrafficInfo);
+                    srcDstTrafficInfo.setCurrentPath(path);
+                    CurrentTrafficDataBase.addCurrentTraffic(srcDstPair, srcDstTrafficInfo); // Add current traffic to the current traffic DB
+                    context.treatmentBuilder().setOutput(path.links().get(1).src().port());
+                    context.send();
+                } catch (Exception e) {
+                    log.error(e.getMessage());
                 }
-                if (CurrentTrafficDataBase.getCurrentTrafficValue(srcDstPair.reversed()) != null) {
-                    log.info("This is a ACK traffic {}", srcDstPair);
-                    return;
-                }
-                log.info("New Flow Joining {}", srcDstPair);
-                if (cache.getIfPresent(srcDstPair) != null) {
-                    log.info("****** Packet Processor: Already dealt with this TCP packet *******");
-                    context.block();
-                    return;
-                } else {
-                    cache.put(srcDstPair, 1L);
-                }
-                log.debug("**** {} -> {} ****", inPkt.getSourceMAC(), inPkt.getDestinationMAC());
-                log.debug("****** Packet Processor1: TCP PACKET *******");
-                long requestedRate = HostMessageHandler.getLatestMessage(srcDstPair, HostMessageType.RATE_REQUEST).longValue();
-                double requestedDelay = HostMessageHandler.getLatestMessage(srcDstPair, HostMessageType.DELAY_REQUEST).doubleValue();
-                log.info("Requested Rate {}, Requested Delay {} for {}", requestedRate, requestedDelay, srcDstPair);
-                SrcDstTrafficInfo srcDstTrafficInfo = new SrcDstTrafficInfo(srcDstPair, null, requestedRate, requestedDelay);
-                MyPath path = PathFinderAndRuleInstaller.applyAndGetPath(srcDstTrafficInfo);
-                // Ignore the ACK traffic
-                srcDstTrafficInfo.setCurrentPath(path);
-                CurrentTrafficDataBase.addCurrentTraffic(srcDstPair, srcDstTrafficInfo); // Add current traffic to the current traffic DB
-                context.treatmentBuilder().setOutput(path.links().get(1).src().port());
-                context.send();
             }
         }
 
@@ -135,6 +137,9 @@ public class PacketProcessorComponent {
                 srcPort = ((UDP) packet.getPayload()).getSourcePort();
                 dstPort = ((UDP) packet.getPayload()).getDestinationPort();
             } else {
+                return null;
+            }
+            if (srcPort < 1024 || dstPort < 1023) {
                 return null;
             }
             return new SrcDstPair(ethPacket.getSourceMAC(), ethPacket.getDestinationMAC(), srcPort, dstPort);

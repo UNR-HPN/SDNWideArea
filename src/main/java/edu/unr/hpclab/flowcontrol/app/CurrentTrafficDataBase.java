@@ -22,14 +22,14 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
-import static edu.unr.hpclab.flowcontrol.app.Services.storageService;
-
 @Component(immediate = true,
         service = {CurrentTrafficDataBase.class}
 )
 public class CurrentTrafficDataBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinksInformationDatabase.class);
     private static final Timer timer = new Timer();
+    private final Services services = Services.getInstance();
+
     protected static EventuallyConsistentMap<SrcDstPair, SrcDstTrafficInfo> CURRENT_TRAFFIC_MAP;
 
     public static void addCurrentTraffic(SrcDstPair srcDstPair, SrcDstTrafficInfo srcDstTrafficInfo) {
@@ -61,7 +61,7 @@ public class CurrentTrafficDataBase {
                 .register(SrcDstPair.class, SrcDstTrafficInfo.class,
                           Path.class, List.class, MacAddress.class);
 
-        CURRENT_TRAFFIC_MAP = storageService.<SrcDstPair, SrcDstTrafficInfo>eventuallyConsistentMapBuilder()
+        CURRENT_TRAFFIC_MAP = services.storageService.<SrcDstPair, SrcDstTrafficInfo>eventuallyConsistentMapBuilder()
                 .withName("current_traffic_map")
                 .withTimestampProvider((k, v) -> new WallClockTimestamp())
                 .withSerializer(mySerializer)

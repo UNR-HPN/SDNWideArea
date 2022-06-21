@@ -15,6 +15,7 @@
  */
 package edu.unr.hpclab.flowcontrol.app.host_messages;
 
+import edu.unr.hpclab.flowcontrol.app.Services;
 import edu.unr.hpclab.flowcontrol.app.SrcDstPair;
 import org.onlab.packet.Data;
 import org.onlab.packet.Ethernet;
@@ -34,8 +35,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Dictionary;
 import java.util.Properties;
 
-import static edu.unr.hpclab.flowcontrol.app.Services.cfgService;
-import static edu.unr.hpclab.flowcontrol.app.Services.packetService;
 import static org.onlab.util.Tools.get;
 
 /**
@@ -49,19 +48,21 @@ import static org.onlab.util.Tools.get;
 public class HostMessagesHandlerComponent {
     private final Logger log = LoggerFactory.getLogger(getClass());
     PacketProcessor p = new InternalPacketProcessor();
+    private final Services services = Services.getInstance();
+
     private String appName;
 
     @Activate
     protected void activate() {
-        packetService.addProcessor(p, 1);
-        cfgService.registerProperties(getClass());
+        services.packetService.addProcessor(p, 1);
+        services.cfgService.registerProperties(getClass());
         log.info("Service Started");
     }
 
     @Deactivate
     protected void deactivate() {
-        packetService.removeProcessor(p);
-        cfgService.unregisterProperties(getClass(), false);
+        services.packetService.removeProcessor(p);
+        services.cfgService.unregisterProperties(getClass(), false);
         log.info("Stopped");
     }
 

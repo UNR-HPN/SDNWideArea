@@ -24,24 +24,32 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class Services {
-    public static CoreService coreService = DefaultServiceDirectory.getService(CoreService.class);
-    public static final ApplicationId appId = coreService.registerApplication("edu.unr.hpclab.flowcontrol");
-    public static LinkService linkService = DefaultServiceDirectory.getService(LinkService.class);
-    public static DeviceService deviceService = DefaultServiceDirectory.getService(DeviceService.class);
-    public static FlowRuleService flowRuleService = DefaultServiceDirectory.getService(FlowRuleService.class);
-    public static FlowStatisticService flowStatsService = DefaultServiceDirectory.getService(FlowStatisticService.class);
-    public static HostService hostService = DefaultServiceDirectory.getService(HostService.class);
-    public static NetworkConfigService configService = DefaultServiceDirectory.getService(NetworkConfigService.class);
-    public static ComponentConfigService cfgService = DefaultServiceDirectory.getService(ComponentConfigService.class);
-    public static PacketService packetService = DefaultServiceDirectory.getService(PacketService.class);
-    public static FlowObjectiveService flowObjectiveService = DefaultServiceDirectory.getService(FlowObjectiveService.class);
-    public static OpenFlowController openFlowControllerService = DefaultServiceDirectory.getService(OpenFlowController.class);
-    public static StorageService storageService = DefaultServiceDirectory.getService(StorageService.class);
-    public static PathService pathService = DefaultServiceDirectory.getService(PathService.class);
-    public static ClusterService clusterService = DefaultServiceDirectory.getService(ClusterService.class);
-    private final static Map<ThreadsEnum, ThreadPoolExecutor> map = new HashMap<>();
+    private static Services instance = null;
+    private final Map<ThreadsEnum, ThreadPoolExecutor> map = new HashMap<>();
+    public CoreService coreService = DefaultServiceDirectory.getService(CoreService.class);
+    public final ApplicationId appId = coreService.registerApplication("edu.unr.hpclab.flowcontrol");
+    public LinkService linkService = DefaultServiceDirectory.getService(LinkService.class);
+    public DeviceService deviceService = DefaultServiceDirectory.getService(DeviceService.class);
+    public FlowRuleService flowRuleService = DefaultServiceDirectory.getService(FlowRuleService.class);
+    public FlowStatisticService flowStatsService = DefaultServiceDirectory.getService(FlowStatisticService.class);
+    public HostService hostService = DefaultServiceDirectory.getService(HostService.class);
+    public NetworkConfigService configService = DefaultServiceDirectory.getService(NetworkConfigService.class);
+    public ComponentConfigService cfgService = DefaultServiceDirectory.getService(ComponentConfigService.class);
+    public PacketService packetService = DefaultServiceDirectory.getService(PacketService.class);
+    public FlowObjectiveService flowObjectiveService = DefaultServiceDirectory.getService(FlowObjectiveService.class);
+    public OpenFlowController openFlowControllerService = DefaultServiceDirectory.getService(OpenFlowController.class);
+    public StorageService storageService = DefaultServiceDirectory.getService(StorageService.class);
+    public PathService pathService = DefaultServiceDirectory.getService(PathService.class);
+    public ClusterService clusterService = DefaultServiceDirectory.getService(ClusterService.class);
 
-    public static ThreadPoolExecutor getExecutor(ThreadsEnum th){
-        return map.computeIfAbsent(th , (x) -> new ThreadPoolExecutor(th.getPoolSize(), th.getPoolSize(), 10, TimeUnit.SECONDS, new ArrayBlockingQueue<>(th.getQSize()), new ThreadPoolExecutor.DiscardPolicy()));
+    public static Services getInstance() {   //Singleton
+        if (instance == null) {
+            instance = new Services();
+        }
+        return instance;
+    }
+
+    public ThreadPoolExecutor getExecutor(ThreadsEnum th) {
+        return map.computeIfAbsent(th, (x) -> new ThreadPoolExecutor(th.getPoolSize(), th.getPoolSize(), 10, TimeUnit.SECONDS, new ArrayBlockingQueue<>(th.getQSize()), new ThreadPoolExecutor.DiscardPolicy()));
     }
 }

@@ -8,6 +8,7 @@ import edu.unr.hpclab.flowcontrol.app.path_cost_cacl.PathCalculator;
 import edu.unr.hpclab.flowcontrol.app.path_cost_cacl.PathChangesComparator;
 import edu.unr.hpclab.flowcontrol.app.path_cost_cacl.PathDelayComparator;
 import edu.unr.hpclab.flowcontrol.app.path_cost_cacl.RateFitPathComparator;
+import org.onlab.util.Tools;
 import org.onosproject.net.DefaultEdgeLink;
 import org.onosproject.net.Link;
 import org.slf4j.Logger;
@@ -26,6 +27,8 @@ import static edu.unr.hpclab.flowcontrol.app.ThreadsEnum.*;
 
 public class SolutionFinder {
     static Logger log = LoggerFactory.getLogger(SolutionFinder.class);
+    private final static Services services = Services.getInstance();
+
 
     public static void findSolutionAfterFlowLeave() {  // When one of the flows leaves the network
         findSolution(null);
@@ -48,11 +51,11 @@ public class SolutionFinder {
         List<SrcDstTrafficInfo> flowsWithRequestedRate = srcDstTrafficInfoListGroupedByRequestedRate.get(true);
         List<SrcDstTrafficInfo> flowsWithoutRequestedRate = srcDstTrafficInfoListGroupedByRequestedRate.get(false);
 
-        if (flowsWithRequestedRate.size() != 0) {
-            Services.getExecutor(SOLUTION_FINDER).submit(() -> findSolutionForFlowsWithRequestedRate(flowsWithRequestedRate, 0));
+        if (!Tools.isNullOrEmpty(flowsWithRequestedRate)) {
+            services.getExecutor(SOLUTION_FINDER).submit(() -> findSolutionForFlowsWithRequestedRate(flowsWithRequestedRate, 0));
         }
-        if (flowsWithoutRequestedRate.size() != 0) {
-            Services.getExecutor(SOLUTION_FINDER).submit(() -> findSolutionForFlowsWithoutRequestedRate(flowsWithoutRequestedRate));
+        if (!Tools.isNullOrEmpty(flowsWithoutRequestedRate)) {
+            services.getExecutor(SOLUTION_FINDER).submit(() -> findSolutionForFlowsWithoutRequestedRate(flowsWithoutRequestedRate));
         }
     }
 

@@ -1,5 +1,6 @@
 package edu.unr.hpclab.flowcontrol.app.host_messages;
 
+import edu.unr.hpclab.flowcontrol.app.Services;
 import edu.unr.hpclab.flowcontrol.app.SrcDstPair;
 import org.onlab.packet.MacAddress;
 import org.onlab.util.KryoNamespace;
@@ -17,7 +18,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 
-import static edu.unr.hpclab.flowcontrol.app.Services.storageService;
 
 public class HostMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(HostMessageHandler.class);
@@ -27,8 +27,10 @@ public class HostMessageHandler {
             .register(SrcDstPair.class, HostMessageType.class, String.class,
                       Path.class, List.class, MacAddress.class);
 
+    private final static Services services = Services.getInstance();
+
     private static final EventuallyConsistentMap<SrcDstPair, Map<HostMessageType, Queue<String>>> HOST_MESSAGES_MAP =
-            storageService.<SrcDstPair, Map<HostMessageType, Queue<String>>>eventuallyConsistentMapBuilder()
+            services.storageService.<SrcDstPair, Map<HostMessageType, Queue<String>>>eventuallyConsistentMapBuilder()
                     .withName("hostMessagesMap")
                     .withTimestampProvider((x, y) -> new WallClockTimestamp())
                     .withSerializer(mySerializer)
