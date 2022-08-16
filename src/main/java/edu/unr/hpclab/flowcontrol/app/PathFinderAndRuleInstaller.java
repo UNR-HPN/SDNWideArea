@@ -8,32 +8,36 @@ import org.onosproject.net.DeviceId;
 import org.onosproject.net.Link;
 import org.onosproject.net.Path;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.flow.DefaultFlowRule;
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
+import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
-import org.onosproject.net.flowobjective.DefaultForwardingObjective;
-import org.onosproject.net.flowobjective.ForwardingObjective;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import java.util.LinkedList;
 import java.util.List;
 
 import static org.onlab.packet.Ethernet.TYPE_IPV4;
 
 public class PathFinderAndRuleInstaller {
     private final static Services services = Services.getInstance();
-    static Logger log = LoggerFactory.getLogger(CongestionHelper.class);
+    public int priority;
 
-    public static Path applyAndGetPath(SrcDstPair srcDstPair) {
+
+    public PathFinderAndRuleInstaller(int priority) {
+        this.priority = priority;
+    }
+
+    public Path applyAndGetPath(SrcDstPair srcDstPair) {
         return applyAndGetPath(srcDstPair, 0);
     }
 
-    public static Path applyAndGetPath(SrcDstPair srcDstPair, long requestedRate) {
+    public Path applyAndGetPath(SrcDstPair srcDstPair, long requestedRate) {
         return applyAndGetPath(srcDstPair);
     }
 
-    public static MyPath applyAndGetPath(SrcDstTrafficInfo srcDstTrafficInfo) {
+    public MyPath applyAndGetPath(SrcDstTrafficInfo srcDstTrafficInfo) {
         List<MyPath> paths;
         if (srcDstTrafficInfo.getRequestedRate() > 0) {
             if (srcDstTrafficInfo.getRequestedDelay() > 0) {
@@ -49,7 +53,8 @@ public class PathFinderAndRuleInstaller {
         return path;
     }
 
-    public static void installPathRules(SrcDstPair srcDstPair, Path path) {
+    public void installPathRules(SrcDstPair srcDstPair, Path path) {
+        List<FlowRule> rules = new LinkedList<>();
         List<Link> links = path.links();
         PortNumber outPort;
         DeviceId deviceId;
@@ -57,12 +62,15 @@ public class PathFinderAndRuleInstaller {
         for (int i = 1; i < links.size(); i++) {
             outPort = links.get(i).src().port();
             deviceId = links.get(i).src().deviceId();
-            addFlowEntry(deviceId, srcDstPair, outPort, inPort);
+            rules.add(getFlowEntry(deviceId, srcDstPair, outPort, inPort));
             inPort = links.get(i).dst().port();
         }
+        services.flowRuleService.applyFlowRules(rules.toArray(new FlowRule[0]));
     }
 
-    private static void addFlowEntry(DeviceId dId, SrcDstPair srcDstPair, PortNumber outPort, PortNumber inPort) {
+
+    private FlowRule getFlowEntry(DeviceId dId, SrcDstPair srcDstPair, PortNumber outPort, PortNumber inPort) {
+
         TrafficTreatment treatment = DefaultTrafficTreatment.builder()
                 .setOutput(outPort)
                 .build();
@@ -77,15 +85,14 @@ public class PathFinderAndRuleInstaller {
                 .matchInPort(inPort)
                 .build();
 
-        ForwardingObjective forwardingObjective = DefaultForwardingObjective.builder()
+
+        return DefaultFlowRule.builder()
                 .withTreatment(treatment)
                 .withSelector(tf)
-                .withPriority(10)
-                .withFlag(ForwardingObjective.Flag.VERSATILE)
+                .forDevice(dId)
+                .withPriority(priority)
                 .fromApp(services.appId)
                 .makeTemporary(Util.POLL_FREQ)
-                .add();
-
-        services.flowObjectiveService.forward(dId, forwardingObjective);
+                .build();
     }
 }

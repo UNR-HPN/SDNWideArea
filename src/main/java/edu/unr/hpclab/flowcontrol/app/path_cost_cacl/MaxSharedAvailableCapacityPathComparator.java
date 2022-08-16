@@ -1,16 +1,15 @@
 package edu.unr.hpclab.flowcontrol.app.path_cost_cacl;
 
 import java.util.Comparator;
-import java.util.function.UnaryOperator;
 
 public class MaxSharedAvailableCapacityPathComparator extends PathCalculator implements Comparator<MyPath> {
     private static final Comparator<MyPath> INSTANCE = new MaxSharedAvailableCapacityPathComparator();
 
-    public static Comparator<MyPath> instance() {
-        return INSTANCE;
+    private MaxSharedAvailableCapacityPathComparator() {
     }
 
-    private MaxSharedAvailableCapacityPathComparator() {
+    public static Comparator<MyPath> instance() {
+        return INSTANCE;
     }
 
     @Override

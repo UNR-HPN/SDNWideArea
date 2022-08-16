@@ -1,12 +1,7 @@
 package edu.unr.hpclab.flowcontrol.app;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import edu.unr.hpclab.flowcontrol.app.path_cost_cacl.MyPath;
-import org.onlab.graph.ScalarWeight;
 import org.onosproject.net.HostLocation;
-import org.onosproject.net.Link;
 import org.onosproject.net.flow.FlowEntry;
 import org.onosproject.net.flow.criteria.Criterion;
 import org.onosproject.net.flow.criteria.EthCriterion;
@@ -14,48 +9,70 @@ import org.onosproject.net.flow.criteria.TcpPortCriterion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.StringJoiner;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
-
 
 public class SrcDstTrafficInfo {
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final Services services = Services.getInstance();
-
     private final SrcDstPair srcDstPair;
     private final long timeStarted;
-    private long requestedRate;
-    private double requestedDelay;
+    private final long requestedRate;
+    private final double requestedDelay;
+    private final CurrentRateWatcher currentRateWatcher = new CurrentRateWatcher();
+    private long timeFinished;
+    private int numberOfMoves;
     private MyPath currentPath;
-    private List<MyPath> altPaths = new LinkedList<>();
     private long currentRate;
     private long highestRecordedRate;
-    private final CurrentRateWatcher currentRateWatcher = new CurrentRateWatcher();
+    private long latestMoveTime;
+    private boolean active;
 
     public SrcDstTrafficInfo(SrcDstPair srcDstPair, MyPath currentPath) {
-        this.srcDstPair = srcDstPair;
-        this.currentPath = currentPath;
-        timeStarted = new Date().getTime();
+        this(srcDstPair, currentPath, 0, 0);
     }
 
     public SrcDstTrafficInfo(SrcDstPair srcDstPair, MyPath path, long requestedRate, double requestedDelay) {
-        this(srcDstPair, path);
+        this.srcDstPair = srcDstPair;
+        this.currentPath = path;
         this.requestedRate = requestedRate;
         this.requestedDelay = requestedDelay;
+        this.active = true;
+        this.timeStarted = System.currentTimeMillis();
+        this.timeFinished = System.currentTimeMillis();
+        this.latestMoveTime = System.currentTimeMillis();
+        this.numberOfMoves = 0;
+    }
+
+    public long getTimeFinished() {
+        return timeFinished;
+    }
+
+    public void setTimeFinished(long timeFinished) {
+        this.timeFinished = timeFinished;
+    }
+
+    public long getLatestMoveTime() {
+        return latestMoveTime;
+    }
+
+    public void setLatestMoveTime(long latestMoveTime) {
+        this.latestMoveTime = latestMoveTime;
+    }
+
+    public int getNumberOfMoves() {
+        return numberOfMoves;
+    }
+
+    public void increaseNumberOfMoves() {
+        this.numberOfMoves++;
     }
 
     public double getRequestedDelay() {
         return requestedDelay;
-    }
-
-    public void setRequestedDelay(long requestedDelay) {
-        this.requestedDelay = requestedDelay;
     }
 
     public long getRequestedRate() {
@@ -72,7 +89,6 @@ public class SrcDstTrafficInfo {
 
     public void setCurrentRate(long rate) {
         this.currentRate = rate;
-        log.debug("Setting current rate of {} to {}", srcDstPair, rate);
     }
 
     public synchronized void setCurrentRate() {
@@ -98,9 +114,12 @@ public class SrcDstTrafficInfo {
         this.currentPath = currentPath;
     }
 
-    public List<MyPath> getAltPaths() {
-//        return this.altPaths = AbstractPathCalculator.getBestPaths(srcDstPair, highestRecordedRate, this.getCurrentPath());
-        return this.altPaths = new ArrayList<>();
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setInactive() {
+        this.active = false;
     }
 
     @Override
@@ -123,92 +142,56 @@ public class SrcDstTrafficInfo {
 
     @Override
     public String toString() {
-        return super.toString();
-//        ObjectMapper mapper = new ObjectMapper();
-//        ObjectNode rootNode = getJsonNode(mapper);
-//        try {
-//            return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(rootNode);
-//        } catch (JsonProcessingException e) {
-//            return "";
-//        }
+        return new StringJoiner(", ", SrcDstTrafficInfo.class.getSimpleName() + "[", "]")
+                .add("srcDstPair=" + srcDstPair)
+                .add("duration(s)=" + (timeFinished-timeStarted)/1000)
+                .add("requestedRate=" + requestedRate)
+                .add("requestedDelay=" + requestedDelay)
+                .add("numberOfMoves=" + numberOfMoves)
+                .add("highestRecordedRate=" + highestRecordedRate)
+                .toString();
     }
 
-    public ObjectNode getJsonNode(ObjectMapper mapper) {
-        ObjectNode rootNode = mapper.createObjectNode();
-        ObjectNode childNode = mapper.createObjectNode();
-        rootNode.set(srcDstPair.toString(), childNode);
-        childNode.set("current_path", getPathJson(this.currentPath));
-//        childNode.putArray("alt_paths")
-//                .addAll(altPathsFormatter());
-        return rootNode;
-    }
-
-    private List<ObjectNode> altPathsFormatter() {
-        List<ObjectNode> paths = new LinkedList<>();
-        for (MyPath p : this.altPaths) {
-            ObjectNode pathJson = getPathJson(p);
-            paths.add(pathJson);
-        }
-        return paths;
-    }
-
-    private ObjectNode getPathJson(MyPath p) {
-        ObjectNode pathJson = new ObjectNode(JsonNodeFactory.instance);
-        pathJson.put("cost", ((ScalarWeight) p.weight()).value());
-        pathJson.put("hopCount", p.links().size());
-        pathJson.putArray("links").addAll(formatLinksPath(p));
-        return pathJson;
-    }
-
-    private List<ObjectNode> formatLinksPath(MyPath path) {
-        List<ObjectNode> linksJson = new LinkedList<>();
-        for (Link l : path.links()) {
-            ObjectNode jo = new ObjectNode(JsonNodeFactory.instance);
-            jo.put("src->dst", String.format("%s -> %s", l.src().toString(), l.dst()));
-            jo.put("util", LinksInformationDatabase.getLinkUtilization(l));
-            jo.put("bw", LinksInformationDatabase.getLinkEstimatedBandwidth(l));
-            linksJson.add(jo);
-        }
-
-        return linksJson;
-    }
-
-   private class CurrentRateWatcher {
+    private class CurrentRateWatcher {
         private final Logger log = LoggerFactory.getLogger(getClass());
 
         private long latestReadTime;
         private long latestBytesMatched;
 
         void calc() {
-            HostLocation host = Util.getHostByMac(srcDstPair.getSrcMac()).location();
-            Predicate<FlowEntry> filter = fe -> ((EthCriterion) fe.selector().getCriterion(Criterion.Type.ETH_SRC)).mac().equals(srcDstPair.getSrcMac())
-                    && ((EthCriterion) fe.selector().getCriterion(Criterion.Type.ETH_DST)).mac().equals(srcDstPair.getDstMac())
-                    && ((TcpPortCriterion) fe.selector().getCriterion(Criterion.Type.TCP_SRC)).tcpPort().toInt() == srcDstPair.getSrcPort()
-                    && ((TcpPortCriterion) fe.selector().getCriterion(Criterion.Type.TCP_DST)).tcpPort().toInt() == srcDstPair.getDstPort();
+            try {
+                HostLocation host = Util.getHostByMac(srcDstPair.getSrcMac()).location();
+                Predicate<FlowEntry> filter = fe -> ((EthCriterion) fe.selector().getCriterion(Criterion.Type.ETH_SRC)).mac().equals(srcDstPair.getSrcMac())
+                        && ((EthCriterion) fe.selector().getCriterion(Criterion.Type.ETH_DST)).mac().equals(srcDstPair.getDstMac())
+                        && ((TcpPortCriterion) fe.selector().getCriterion(Criterion.Type.TCP_SRC)).tcpPort().toInt() == srcDstPair.getSrcPort()
+                        && ((TcpPortCriterion) fe.selector().getCriterion(Criterion.Type.TCP_DST)).tcpPort().toInt() == srcDstPair.getDstPort();
 
-            Optional<FlowEntry> feo = StreamSupport.stream(services.flowRuleService.getFlowEntriesById(services.appId).spliterator(), false)
-                    .filter(f -> f.deviceId().equals(host.elementId()))
-                    .filter(filter).findFirst();
+                Optional<FlowEntry> feo = StreamSupport.stream(services.flowRuleService.getFlowEntriesById(services.appId).spliterator(), false)
+                        .filter(f -> f.deviceId().equals(host.elementId()))
+                        .filter(filter).findFirst();
 
-            if (feo.isPresent()) {
-                FlowEntry fe = feo.get();
-                long currentBytesMatched = fe.bytes();
-                if (this.latestReadTime == 0 || latestBytesMatched == 0){
-                    this.latestBytesMatched = currentBytesMatched;
-                    this.latestReadTime = System.currentTimeMillis();
+                if (feo.isPresent()) {
+                    FlowEntry fe = feo.get();
+                    long currentBytesMatched = fe.bytes();
+                    if (this.latestReadTime == 0 || latestBytesMatched == 0) {
+                        this.latestBytesMatched = currentBytesMatched;
+                        this.latestReadTime = System.currentTimeMillis();
+                    }
+                    if (this.latestReadTime < fe.lastSeen()) {
+                        currentRate = ((currentBytesMatched - this.latestBytesMatched) * 8 / Util.POLL_FREQ);
+                        this.latestBytesMatched = currentBytesMatched;
+                        this.latestReadTime = System.currentTimeMillis();
+                    }
+                } else {
+                    currentRate = 0;
+                    log.trace("No flow rules found for {}. Setting current rate for {}", srcDstPair, currentRate);
                 }
-                if (this.latestReadTime < fe.lastSeen()) {
-                    currentRate = ((currentBytesMatched - this.latestBytesMatched) * 8 / Util.POLL_FREQ);
-                    this.latestBytesMatched = currentBytesMatched;
-                    this.latestReadTime = System.currentTimeMillis();
-                    log.debug("Flow rule is present for {}. Setting current rate for {}", srcDstPair, currentRate);
+                if (currentRate > 0) {
+                    log.trace("Current Rate for {}: {}", srcDstPair, currentRate);
                 }
-            }else {
-                currentRate = 0;
-                log.debug("No flow rules found for {}. Setting current rate for {}", srcDstPair, currentRate);
+            } catch (Exception e) {
+                log.error("", e);
             }
-            log.info("Current Rate for {}: {}", srcDstPair, currentRate);
-            //        log.info("Current Rate (Device Service): {}", deviceService.getDeltaStatisticsForPort(host.deviceId(), host.port()).bytesReceived());
         }
     }
 }

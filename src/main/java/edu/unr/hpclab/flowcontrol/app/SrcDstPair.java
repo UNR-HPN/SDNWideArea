@@ -3,8 +3,7 @@ package edu.unr.hpclab.flowcontrol.app;
 import org.onlab.packet.MacAddress;
 
 import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
+import java.util.StringJoiner;
 
 public class SrcDstPair {
     private final MacAddress srcMac;
@@ -53,16 +52,17 @@ public class SrcDstPair {
         return Objects.hash(srcMac, dstMac, srcPort, dstPort);
     }
 
-    public SrcDstPair reversed(){
+    public SrcDstPair reversed() {
         return new SrcDstPair(dstMac, srcMac, dstPort, srcPort);
     }
 
     @Override
     public String toString() {
-        return toStringHelper(this)
-                .add("src->dst:", srcMac + "->" + dstMac)
-                .add("src port:", getSrcPort())
-                .add("dst port:", getDstPort())
+        return new StringJoiner(", ", SrcDstPair.class.getSimpleName() + "[", "]")
+                .add("srcMac=" + srcMac)
+                .add("dstMac=" + dstMac)
+                .add("srcPort=" + srcPort)
+                .add("dstPort=" + dstPort)
                 .toString();
     }
 }

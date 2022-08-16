@@ -6,7 +6,6 @@ import org.onlab.util.KryoNamespace;
 import org.onosproject.net.Path;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.EventuallyConsistentMap;
-import org.onosproject.store.service.EventuallyConsistentMapEvent;
 import org.onosproject.store.service.WallClockTimestamp;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -14,23 +13,22 @@ import org.osgi.service.component.annotations.Deactivate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.HashMap;
+import java.io.FileWriter;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Component(immediate = true,
         service = {CurrentTrafficDataBase.class}
 )
 public class CurrentTrafficDataBase {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LinksInformationDatabase.class);
+    private static final Logger log = LoggerFactory.getLogger(LinksInformationDatabase.class);
     private static final Timer timer = new Timer();
+    private static EventuallyConsistentMap<SrcDstPair, SrcDstTrafficInfo> CURRENT_TRAFFIC_MAP;
     private final Services services = Services.getInstance();
-
-    protected static EventuallyConsistentMap<SrcDstPair, SrcDstTrafficInfo> CURRENT_TRAFFIC_MAP;
 
     public static void addCurrentTraffic(SrcDstPair srcDstPair, SrcDstTrafficInfo srcDstTrafficInfo) {
         CURRENT_TRAFFIC_MAP.put(srcDstPair, srcDstTrafficInfo);
@@ -49,9 +47,7 @@ public class CurrentTrafficDataBase {
     }
 
     public static Map<SrcDstPair, SrcDstTrafficInfo> getCurrentTraffic() {
-        Map<SrcDstPair, SrcDstTrafficInfo> map = new HashMap<>();
-        CURRENT_TRAFFIC_MAP.entrySet().forEach((k) -> map.put(k.getKey(), k.getValue()));
-        return Collections.unmodifiableMap(map);
+        return CURRENT_TRAFFIC_MAP.entrySet().stream().filter(e -> e.getValue().isActive()).collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     @Activate
@@ -67,12 +63,6 @@ public class CurrentTrafficDataBase {
                 .withSerializer(mySerializer)
                 .build();
 
-        CURRENT_TRAFFIC_MAP.addListener((x) -> {
-            if (x.type() == EventuallyConsistentMapEvent.Type.REMOVE) {   //
-                SolutionFinder.findSolutionAfterFlowLeave();
-//                LOGGER.info("Removed srcDstPair {}", x.value().getSrcDstPair());
-            }
-        });
 
         CurrentTrafficAliveStatusTimerTask scheduleApp = new CurrentTrafficAliveStatusTimerTask();
         timer.schedule(scheduleApp, TimeUnit.SECONDS.toMillis(Util.POLL_FREQ), TimeUnit.SECONDS.toMillis(Util.POLL_FREQ));
@@ -81,6 +71,22 @@ public class CurrentTrafficDataBase {
     @Deactivate
     protected void deactivate() {
         timer.cancel();
+        writeResultsToFile();
+    }
+
+    private void writeResultsToFile() {
+        String home = System.getProperty("user.home");
+        try (FileWriter fw = new FileWriter(home + "/TrafficSummary.txt")) {
+            for (Map.Entry<SrcDstPair, SrcDstTrafficInfo> e : CURRENT_TRAFFIC_MAP.entrySet()) {
+                fw.write(e.getValue().toString());
+                fw.write("\n");
+                fw.flush();
+            }
+            fw.write(String.format("Total #moves=%s", SolutionFinder.getTotalNumberOfMoves()));
+        } catch (Exception e) {
+            log.error("", e);
+        }
+
     }
 
     private static class CurrentTrafficAliveStatusTimerTask extends TimerTask {
@@ -88,12 +94,15 @@ public class CurrentTrafficDataBase {
         @Override
         public void run() {
             for (Map.Entry<SrcDstPair, SrcDstTrafficInfo> entry : CURRENT_TRAFFIC_MAP.entrySet()) {
+                entry.getValue().setCurrentRate();
                 // Ignoring traffic below 2 MBPs and Too recent traffic (less than 5 sec)
-                entry.getValue().setCurrentRate();   // recalculate it to get accurate results
                 boolean remove = entry.getValue().getCurrentRate() < DataRateUnit.MBPS.toBitsPerSecond(2) && Util.ageInSeconds(entry.getValue().getTimeStarted()) >= 2 * Util.POLL_FREQ;
                 if (remove) {
-                    LOGGER.info("Removing {}", entry.getKey());
-                    CURRENT_TRAFFIC_MAP.remove(entry.getKey());
+                    log.trace("Removing {}", entry.getKey());
+                    SrcDstTrafficInfo srcDstTrafficInfo = CURRENT_TRAFFIC_MAP.get(entry.getKey());
+                    srcDstTrafficInfo.setInactive();
+                    srcDstTrafficInfo.setTimeFinished(System.currentTimeMillis());
+                    SolutionFinder.findSolutionAfterFlowTerminate();
                 }
             }
         }

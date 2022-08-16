@@ -52,23 +52,24 @@ public class PacketProcessorComponent {
     private final Services services = Services.getInstance();
 
     private final Logger log = LoggerFactory.getLogger(getClass());
-    PacketProcessor p = new InternalPacketProcessor();
+    private final PacketProcessor packetProcessor = new InternalPacketProcessor();
+//    private final ExecutorService cachedThreadPool = Executors.newCachedThreadPool();
+
     private String appName;
 
     @Activate
     protected void activate() {
-
-        services.packetService.addProcessor(p, 1);
-
+        services.packetService.addProcessor(packetProcessor, 1);
         services.cfgService.registerProperties(getClass());
         log.info("Service Started");
     }
 
     @Deactivate
     protected void deactivate() {
-        services.packetService.removeProcessor(p);
+        services.packetService.removeProcessor(packetProcessor);
         services.cfgService.unregisterProperties(getClass(), false);
         log.info("Stopped");
+//        cachedThreadPool.shutdown();
     }
 
     @Modified
@@ -81,13 +82,15 @@ public class PacketProcessorComponent {
     }
 
     private final class InternalPacketProcessor implements PacketProcessor {
-        Cache<SrcDstPair, Long> cache = CacheBuilder.newBuilder()
+        private final Cache<SrcDstPair, Long> cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(5, TimeUnit.SECONDS)
                 .build();
-
+        PathFinderAndRuleInstaller pathFinderAndRuleInstaller = new PathFinderAndRuleInstaller(20);
+        private int flows = 0;
 
         @Override
         public void process(PacketContext context) {
+
             if (context.isHandled()) {
                 return;
             }
@@ -96,30 +99,47 @@ public class PacketProcessorComponent {
                 SrcDstPair srcDstPair = getSrcDstPair(inPkt);
                 try {
                     if (srcDstPair == null) {
-                        throw new RuntimeException("Neither TCP nor UDP flow or a Flow with a reserved port");
+                        return;
                     }
-                    // Ignore the ACK traffic
-                    if (CurrentTrafficDataBase.getCurrentTrafficValue(srcDstPair.reversed()) != null) {
-                        throw new RuntimeException(String.format("This is a ACK traffic %s", srcDstPair));
-                    }
-                    log.info("New Flow Joining {}", srcDstPair);
                     if (cache.getIfPresent(srcDstPair) != null) {
                         context.block();
-                        throw new RuntimeException("Packet Processor: Already dealt with this TCP packet");
+                        return;
                     } else {
                         cache.put(srcDstPair, 1L);
                     }
 
-                    log.debug("**** {} -> {} ****", inPkt.getSourceMAC(), inPkt.getDestinationMAC());
                     long requestedRate = HostMessageHandler.getLatestMessage(srcDstPair, HostMessageType.RATE_REQUEST).longValue();
                     double requestedDelay = HostMessageHandler.getLatestMessage(srcDstPair, HostMessageType.DELAY_REQUEST).doubleValue();
-                    log.info("Requested Rate {}, Requested Delay {} for {}", requestedRate, requestedDelay, srcDstPair);
+
+                    boolean firstCond = srcDstPair.getSrcPort() == srcDstPair.getDstPort();
+                    boolean secondCond = srcDstPair.getSrcPort() > 10000 && srcDstPair.getDstPort() > 10000;
+                    boolean thirdCond = cache.getIfPresent(srcDstPair.reversed()) == null;
+                    boolean forthCond = requestedRate > 0 && requestedDelay > 0;
+
+
+                    if (firstCond && secondCond && thirdCond && forthCond) {
+                        log.info("Flow #{} Joined {}", flows, srcDstPair);
+//                        if (requestedRate == 0 || requestedDelay == 0) {
+//                            log.warn("Requested Rate {}, Requested Delay {} for {}", requestedRate, requestedDelay, srcDstPair);
+//                        }
+                        flows++;
+                    } else {
+                        log.debug("SrcDst Pair {} joined", srcDstPair);
+                    }
+
+//                    services.getExecutor(ThreadsEnum.SOLUTION_FINDER).submit(() -> {
+                    long t1 = System.currentTimeMillis();
                     SrcDstTrafficInfo srcDstTrafficInfo = new SrcDstTrafficInfo(srcDstPair, null, requestedRate, requestedDelay);
-                    MyPath path = PathFinderAndRuleInstaller.applyAndGetPath(srcDstTrafficInfo);
+                    MyPath path = pathFinderAndRuleInstaller.applyAndGetPath(srcDstTrafficInfo);
                     srcDstTrafficInfo.setCurrentPath(path);
-                    CurrentTrafficDataBase.addCurrentTraffic(srcDstPair, srcDstTrafficInfo); // Add current traffic to the current traffic DB
+                    CurrentTrafficDataBase.addCurrentTraffic(srcDstPair, srcDstTrafficInfo);
                     context.treatmentBuilder().setOutput(path.links().get(1).src().port());
                     context.send();
+                    long t2 = System.currentTimeMillis() - t1;
+                    if (t2 > 50) {
+                        log.warn("Took {}ms to handle joining of flow {}", t2, srcDstPair);
+                    }
+//                    });
                 } catch (Exception e) {
                     log.error(e.getMessage());
                 }
@@ -139,9 +159,14 @@ public class PacketProcessorComponent {
             } else {
                 return null;
             }
-            if (srcPort < 1024 || dstPort < 1023) {
-                return null;
-            }
+//            if (srcPort < 10000 || dstPort < 10000) {
+//                return null;
+//            }
+//            if (srcPort == dstPort){
+//                log.info("Hoooooray! {}", new SrcDstPair(ethPacket.getSourceMAC(), ethPacket.getDestinationMAC(), srcPort, dstPort));
+//		return null;
+//            }
+            //log.debug("Match!! Src Port {}, Dst Port {}", srcPort, dstPort);
             return new SrcDstPair(ethPacket.getSourceMAC(), ethPacket.getDestinationMAC(), srcPort, dstPort);
         }
 

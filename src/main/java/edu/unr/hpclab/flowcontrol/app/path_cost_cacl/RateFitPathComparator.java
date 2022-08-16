@@ -17,11 +17,9 @@ public class RateFitPathComparator extends PathCalculator implements Comparator<
             return -1;
         } else if (requestedRate > available1 && requestedRate <= available2) {
             return 1;
-        }
-        else if (requestedRate <= available1 && requestedRate <= available2) {
+        } else if (requestedRate <= available1 && requestedRate <= available2) {
             return 0;   // Leave this to be decided by the next comparator
-        }
-        else {
+        } else {
             return Double.compare(available1, available2) * -1; // First goes the largest available bandwidth
         }
     }

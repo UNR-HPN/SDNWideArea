@@ -38,7 +38,7 @@ import java.util.stream.Stream;
 
 
 public class Util {
-    static final Logger log = LoggerFactory.getLogger(Util.class);
+    private static final Logger log = LoggerFactory.getLogger(Util.class);
     private final static Services services = Services.getInstance();
     static int POLL_FREQ = getPollFreq();
 
@@ -167,7 +167,11 @@ public class Util {
     }
 
     public static double ageInSeconds(long t) {
-        return ageInMilliSeconds(t) / 1e3;
+        if (t == 0) {
+            return 0;
+        } else {
+            return ageInMilliSeconds(t) / 1e3;
+        }
     }
 
     public static byte[] serializeObjectToByteArray(Object obj) {

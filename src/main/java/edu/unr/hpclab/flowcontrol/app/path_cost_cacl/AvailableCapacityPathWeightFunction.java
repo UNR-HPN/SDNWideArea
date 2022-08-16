@@ -9,11 +9,11 @@ import java.util.function.UnaryOperator;
 public class AvailableCapacityPathWeightFunction extends PathCalculator implements UnaryOperator<MyPath> {
     private static final UnaryOperator<MyPath> INSTANCE = new AvailableCapacityPathWeightFunction();
 
-    public static UnaryOperator<MyPath> instance() {
-        return INSTANCE;
+    private AvailableCapacityPathWeightFunction() {
     }
 
-    private AvailableCapacityPathWeightFunction() {
+    public static UnaryOperator<MyPath> instance() {
+        return INSTANCE;
     }
 
     @Override

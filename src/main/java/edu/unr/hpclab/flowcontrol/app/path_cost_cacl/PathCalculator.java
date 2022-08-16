@@ -28,8 +28,8 @@ import java.util.stream.Collectors;
 import static org.onosproject.net.HostId.hostId;
 
 public abstract class PathCalculator {
-    protected final ProviderId PID = new ProviderId("flowcontrol", "edu.unr.hpclab.flowcontrol", true);
     private static final Services services = Services.getInstance();
+    protected final ProviderId PID = new ProviderId("flowcontrol", "edu.unr.hpclab.flowcontrol", true);
 
     public static List<MyPath> getPathsSortedByRateFit(SrcDstTrafficInfo srcDstTrafficInfo) {
         Function<MyPath, MyPath> function = AvailableCapacityPathWeightFunction.instance();
@@ -65,7 +65,8 @@ public abstract class PathCalculator {
 
 
     public static List<MyPath> getKShortestPaths(SrcDstPair srcDstPair) {
-        Set<Path> paths = services.pathService.getKShortestPaths(hostId(srcDstPair.getSrcMac()), hostId(srcDstPair.getDstMac())).collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Path> paths = services.pathService.getKShortestPaths(hostId(srcDstPair.getSrcMac()), hostId(srcDstPair.getDstMac()))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         if (paths.isEmpty()) {
             return new ArrayList<>();
         }

@@ -21,6 +21,15 @@ import org.onlab.packet.Data;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.ICMP;
 import org.onlab.packet.IPv4;
+import org.onosproject.core.ApplicationId;
+import org.onosproject.net.DeviceId;
+import org.onosproject.net.PortNumber;
+import org.onosproject.net.flow.DefaultFlowRule;
+import org.onosproject.net.flow.DefaultTrafficSelector;
+import org.onosproject.net.flow.DefaultTrafficTreatment;
+import org.onosproject.net.flow.FlowRule;
+import org.onosproject.net.flow.TrafficSelector;
+import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketProcessor;
 import org.osgi.service.component.ComponentContext;
@@ -33,8 +42,11 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Dictionary;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Properties;
 
+import static org.onlab.packet.Ethernet.TYPE_IPV4;
 import static org.onlab.util.Tools.get;
 
 /**
@@ -47,20 +59,24 @@ import static org.onlab.util.Tools.get;
         })
 public class HostMessagesHandlerComponent {
     private final Logger log = LoggerFactory.getLogger(getClass());
-    PacketProcessor p = new InternalPacketProcessor();
+    private final List<FlowRule> flows = new LinkedList<>();
     private final Services services = Services.getInstance();
-
+    public final ApplicationId HOST_MESSAGES_APP_ID = services.coreService.registerApplication("edu.unr.hpclab.flowcontrol.hostmessages");
+    PacketProcessor p = new InternalPacketProcessor();
     private String appName;
 
     @Activate
     protected void activate() {
         services.packetService.addProcessor(p, 1);
         services.cfgService.registerProperties(getClass());
+        services.hostService.getHosts().forEach(h -> flows.add(getFlowEntry(h.location().deviceId(), h.location().port())));
+        services.flowRuleService.applyFlowRules(flows.toArray(new FlowRule[0]));
         log.info("Service Started");
     }
 
     @Deactivate
     protected void deactivate() {
+        services.flowRuleService.removeFlowRules(flows.toArray(new FlowRule[0]));
         services.packetService.removeProcessor(p);
         services.cfgService.unregisterProperties(getClass(), false);
         log.info("Stopped");
@@ -75,6 +91,27 @@ public class HostMessagesHandlerComponent {
         log.info("Reconfigured");
     }
 
+    private FlowRule getFlowEntry(DeviceId dId, PortNumber portNumber) {
+        TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                .setOutput(PortNumber.CONTROLLER)
+                .build();
+
+        TrafficSelector selector = DefaultTrafficSelector.builder()
+                .matchEthType(TYPE_IPV4)
+                .matchIPProtocol(IPv4.PROTOCOL_ICMP)
+                .matchIcmpType((byte) 100)
+                .matchInPort(portNumber)
+                .build();
+
+
+        return DefaultFlowRule.builder()
+                .withTreatment(treatment)
+                .withSelector(selector)
+                .withPriority(3000)
+                .forDevice(dId)
+                .fromApp(HOST_MESSAGES_APP_ID)
+                .makePermanent().build();
+    }
 
     private final class InternalPacketProcessor implements PacketProcessor {
         @Override

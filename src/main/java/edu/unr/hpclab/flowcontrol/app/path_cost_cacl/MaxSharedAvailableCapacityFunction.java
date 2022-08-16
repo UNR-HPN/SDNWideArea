@@ -5,11 +5,11 @@ import java.util.function.UnaryOperator;
 public class MaxSharedAvailableCapacityFunction extends PathCalculator implements UnaryOperator<MyPath> {
     private static final UnaryOperator<MyPath> INSTANCE = new MaxSharedAvailableCapacityFunction();
 
-    public static UnaryOperator<MyPath> instance() {
-        return INSTANCE;
+    private MaxSharedAvailableCapacityFunction() {
     }
 
-    private MaxSharedAvailableCapacityFunction() {
+    public static UnaryOperator<MyPath> instance() {
+        return INSTANCE;
     }
 
     @Override

@@ -1,8 +1,11 @@
 package edu.unr.hpclab.flowcontrol.app;
 
+import java.util.concurrent.ThreadPoolExecutor;
+
 public enum ThreadsEnum {
-    SOLUTION_FINDER(1, 2),
-    DELAY_CALCULATOR(1, 1),
+    SOLUTION_FINDER(1, 1),
+    DELAY_CALCULATOR(1, 0), // Calculate the link delay concurrently
+    NEW_PATH_FINDER(10, 10),
     ;
     private final int poolSize, qSize;
 
@@ -18,4 +21,5 @@ public enum ThreadsEnum {
     public int getQSize() {
         return qSize;
     }
+
 }

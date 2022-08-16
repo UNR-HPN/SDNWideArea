@@ -1,7 +1,5 @@
 package edu.unr.hpclab.flowcontrol.app.host_messages;
 
-import org.onosproject.net.PortNumber;
-
 public enum HostMessageType {
     RATE_REQUEST(Integer.class),
     DELAY_REQUEST(Double.class),

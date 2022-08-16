@@ -66,31 +66,38 @@ public class AppCommand extends AbstractShellCommand implements org.apache.karaf
     protected void doExecute() {
         LinkService linkService = get(LinkService.class);
         Link link = one != null && two != null ? linkService.getLink(ConnectPoint.deviceConnectPoint(one), ConnectPoint.deviceConnectPoint(two)) : null;
-        switch (type) {
-            case "current-traffic":
-                CurrentTrafficDataBase.getCurrentTraffic().forEach((k, v) -> print("SrcDstPair %s, time %s", k, new Date(v.getTimeStarted())));
-                break;
-            case "links-bandwidth":
-                if (link != null) {
+        try {
+            switch (type) {
+                case "current-traffic":
+                    CurrentTrafficDataBase.getCurrentTraffic().forEach((k, v) -> print("SrcDstPair %s, time %s", v, new Date(v.getTimeStarted())));
+                    break;
+                case "links-bandwidth":
+                    if (link != null) {
 //                    BottleneckDetector.testPathLatency(link);
-                    print("Link %s has %s Bps", formatLink(link), LinksInformationDatabase.getLinkEstimatedBandwidth(link));
-                } else {
-                    LinksInformationDatabase.getLinkInformationMap().values().forEach(v -> print("%s", v));
-                }
-                break;
-            case "links-utilization":
-                if (link != null) {
-                    double util = LinksInformationDatabase.getLinkUtilization(link) * 100;
-                    print("Link %s with bandwidth %s is being used by %s%%", formatLink(link), LinksInformationDatabase.getLinkEstimatedBandwidth(link), String.format("%.2f", util));
-                } else {
-                    LinksInformationDatabase.getLinkInformationMap().keySet().forEach(l -> {
-                        print("Link %s with bandwidth %s is being used by %s%%", formatLink(l), LinksInformationDatabase.getLinkEstimatedBandwidth(l), String.format("%.2f", LinksInformationDatabase.getLinkUtilization(l)));
-                    });
-                }
-                break;
-            case "clear-links-capacity":
-                LinksInformationDatabase.deleteEntries();
-                break;
+                        print("Link %s has %s Bps", formatLink(link), LinksInformationDatabase.getLinkEstimatedBandwidth(link));
+                    } else {
+                        LinksInformationDatabase.getLinkInformationMap().values().forEach(v -> print("%s", v));
+                    }
+                    break;
+                case "links-utilization":
+                    if (link != null) {
+                        double util = LinksInformationDatabase.getLinkUtilization(link) * 100;
+                        print("Link %s with bandwidth %s is being used by %s%%", formatLink(link), LinksInformationDatabase.getLinkEstimatedBandwidth(link), String.format("%.2f", util));
+                    } else {
+                        LinksInformationDatabase.getLinkInformationMap().keySet().forEach(l -> {
+                            print("Link %s with bandwidth %s is being used by %s%%", formatLink(l), LinksInformationDatabase.getLinkEstimatedBandwidth(l), String.format("%.2f", LinksInformationDatabase.getLinkUtilization(l)));
+                        });
+                    }
+                    break;
+                case "clear-links-capacity":
+                    LinksInformationDatabase.deleteEntries();
+                    break;
+                case "test-latency":
+                    DelayCalculatorSingleton.getInstance().testLinksLatency();
+                    break;
+            }
+        } catch (Exception e) {
+            log.error("", e);
         }
     }
 
@@ -105,6 +112,7 @@ public class AppCommand extends AbstractShellCommand implements org.apache.karaf
         strings.add("congested-links");
         strings.add("current-traffic");
         strings.add("update-link-bandwidth");
+        strings.add("test-latency");
 
         // Now let the completer do the work for figuring out what to offer.
         return delegate.complete(session, commandLine, candidates);

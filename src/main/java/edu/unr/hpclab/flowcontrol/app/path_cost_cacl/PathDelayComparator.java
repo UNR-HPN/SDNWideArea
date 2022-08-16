@@ -4,6 +4,7 @@ import java.util.Comparator;
 
 public class PathDelayComparator extends PathCalculator implements Comparator<MyPath> {
     private final double requestedDelay;
+
     public PathDelayComparator(double requestedDelay) {
         this.requestedDelay = requestedDelay;
     }

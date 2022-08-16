@@ -7,11 +7,12 @@ import java.util.function.UnaryOperator;
 public class PathDelayFunction extends PathCalculator implements UnaryOperator<MyPath> {
     private static final UnaryOperator<MyPath> INSTANCE = new PathDelayFunction();
 
+    private PathDelayFunction() {
+    }
+
     public static UnaryOperator<MyPath> instance() {
         return INSTANCE;
     }
-
-    private PathDelayFunction() {}
 
     @Override
     public MyPath apply(MyPath myPath) {

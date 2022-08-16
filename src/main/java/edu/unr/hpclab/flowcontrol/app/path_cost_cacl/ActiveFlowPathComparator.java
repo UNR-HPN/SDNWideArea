@@ -8,6 +8,7 @@ public class ActiveFlowPathComparator extends PathCalculator implements Comparat
     public static Comparator<MyPath> instance() {
         return INSTANCE;
     }
+
     @Override
     public int compare(MyPath path1, MyPath path2) {
         int flowsNo1 = getCurrentRatesOfActiveFlows(path1).getLeft();

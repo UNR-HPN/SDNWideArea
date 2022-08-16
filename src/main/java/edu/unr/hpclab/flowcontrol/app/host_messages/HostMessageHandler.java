@@ -40,7 +40,7 @@ public class HostMessageHandler {
     public static void parseAndAct(SrcDstPair srcDstPair, String... tokens) {
         HostMessageType type = parseAndGetType(tokens[0]);
         String value = preprocessValue(tokens[1], type);
-        log.info(String.format("%s:%s", type, value));
+        log.debug(String.format("For %s: %s:%s", srcDstPair, type, value));
         if (HOST_MESSAGES_MAP.containsKey(srcDstPair)) {
             if (HOST_MESSAGES_MAP.get(srcDstPair).containsKey(type)) {
                 HOST_MESSAGES_MAP.get(srcDstPair).get(type).add(value);

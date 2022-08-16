@@ -31,8 +31,8 @@ public class RateToChangesComparator extends PathCalculator implements Comparato
         double available2 = path2.getAvailableRate();
         double aMin1 = Math.min(requestedRate, available1);
         double aMin2 = Math.min(requestedRate, available2);
-        double changes1 = Math.max(numberOfChanges(originalPath, path1) * 0.6 , 1);
-        double changes2 = Math.max(numberOfChanges(originalPath, path2) * 0.6 , 1);
+        double changes1 = Math.max(numberOfChanges(originalPath, path1) * 0.6, 1);
+        double changes2 = Math.max(numberOfChanges(originalPath, path2) * 0.6, 1);
         return Double.compare(aMin1 / changes1, aMin2 / changes2) * -1;
     }
 }
