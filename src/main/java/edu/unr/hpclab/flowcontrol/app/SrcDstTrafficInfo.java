@@ -17,7 +17,6 @@ import java.util.stream.StreamSupport;
 
 public class SrcDstTrafficInfo {
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private final Services services = Services.getInstance();
     private final SrcDstPair srcDstPair;
     private final long timeStarted;
     private final long requestedRate;
@@ -144,17 +143,17 @@ public class SrcDstTrafficInfo {
     public String toString() {
         return new StringJoiner(", ", SrcDstTrafficInfo.class.getSimpleName() + "[", "]")
                 .add("srcDstPair=" + srcDstPair)
-                .add("duration(s)=" + (timeFinished-timeStarted)/1000)
+                .add("duration(s)=" + (timeFinished - timeStarted) / 1000)
                 .add("requestedRate=" + requestedRate)
                 .add("requestedDelay=" + requestedDelay)
                 .add("numberOfMoves=" + numberOfMoves)
                 .add("highestRecordedRate=" + highestRecordedRate)
+                .add("HighestRecordedRate/RequestedRate=" + highestRecordedRate * 1.0 / requestedRate)
                 .toString();
     }
 
     private class CurrentRateWatcher {
         private final Logger log = LoggerFactory.getLogger(getClass());
-
         private long latestReadTime;
         private long latestBytesMatched;
 
@@ -166,7 +165,7 @@ public class SrcDstTrafficInfo {
                         && ((TcpPortCriterion) fe.selector().getCriterion(Criterion.Type.TCP_SRC)).tcpPort().toInt() == srcDstPair.getSrcPort()
                         && ((TcpPortCriterion) fe.selector().getCriterion(Criterion.Type.TCP_DST)).tcpPort().toInt() == srcDstPair.getDstPort();
 
-                Optional<FlowEntry> feo = StreamSupport.stream(services.flowRuleService.getFlowEntriesById(services.appId).spliterator(), false)
+                Optional<FlowEntry> feo = StreamSupport.stream(Services.flowRuleService.getFlowEntriesById(Services.appId).spliterator(), false)
                         .filter(f -> f.deviceId().equals(host.elementId()))
                         .filter(filter).findFirst();
 

@@ -21,9 +21,7 @@ import java.util.List;
 import static org.onlab.packet.Ethernet.TYPE_IPV4;
 
 public class PathFinderAndRuleInstaller {
-    private final static Services services = Services.getInstance();
     public int priority;
-
 
     public PathFinderAndRuleInstaller(int priority) {
         this.priority = priority;
@@ -65,7 +63,7 @@ public class PathFinderAndRuleInstaller {
             rules.add(getFlowEntry(deviceId, srcDstPair, outPort, inPort));
             inPort = links.get(i).dst().port();
         }
-        services.flowRuleService.applyFlowRules(rules.toArray(new FlowRule[0]));
+        Services.flowRuleService.applyFlowRules(rules.toArray(new FlowRule[0]));
     }
 
 
@@ -91,7 +89,7 @@ public class PathFinderAndRuleInstaller {
                 .withSelector(tf)
                 .forDevice(dId)
                 .withPriority(priority)
-                .fromApp(services.appId)
+                .fromApp(Services.appId)
                 .makeTemporary(Util.POLL_FREQ)
                 .build();
     }

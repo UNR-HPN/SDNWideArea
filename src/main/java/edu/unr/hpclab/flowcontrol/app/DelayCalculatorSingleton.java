@@ -43,9 +43,8 @@ import static org.onlab.packet.Ethernet.TYPE_IPV4;
 public class DelayCalculatorSingleton {
 
     public static final IpAddress CONTROLLER_HOST_IP = IpAddress.valueOf(Optional.ofNullable(System.getenv("CONTROLLER_IP")).orElse("10.0.1.10"));
-    private static final Services services = Services.getInstance();
-    //    public static final Host CONTROLLER_HOST = services.hostService.getHostsByIp(CONTROLLER_HOST_IP).stream().findFirst().orElseThrow();
-    public static final ApplicationId DELAY_CALCULATOR_APP_ID = services.coreService.registerApplication("edu.unr.hpclab.flowcontrol.delaycalculator");
+    //    public static final Host CONTROLLER_HOST = Services.hostService.getHostsByIp(CONTROLLER_HOST_IP).stream().findFirst().orElseThrow();
+    public static final ApplicationId DELAY_CALCULATOR_APP_ID = Services.coreService.registerApplication("edu.unr.hpclab.flowcontrol.delaycalculator");
     private static final Logger log = LoggerFactory.getLogger(DelayCalculatorSingleton.class);
     private static final Map<DeviceId, Double> controlLinkLatencies = new ConcurrentHashMap<>();
     private static DelayCalculatorSingleton instance = null;
@@ -66,7 +65,7 @@ public class DelayCalculatorSingleton {
 
     public void testLinksLatency() {
 //        Predicate<Link> ignoreControlLinks = link -> !link.src().deviceId().equals(CONTROLLER_HOST.location().deviceId()) && !link.dst().deviceId().equals(CONTROLLER_HOST.location().deviceId());
-        List<Link> links = StreamSupport.stream(services.linkService.getLinks().spliterator(), false)
+        List<Link> links = StreamSupport.stream(Services.linkService.getLinks().spliterator(), false)
 //                .filter(ignoreControlLinks)
                 .collect(Collectors.toList());
         testLinksLatency(links);
@@ -74,7 +73,7 @@ public class DelayCalculatorSingleton {
 
     public void testLinksLatency(Iterable<Link> links) {
         try {
-            services.getExecutor(ThreadsEnum.DELAY_CALCULATOR).submit(() -> handleLinks(links));
+            Services.getExecutor(ThreadsEnum.DELAY_CALCULATOR).submit(() -> handleLinks(links));
         } catch (Exception e) {
             log.error("", e);
         }
@@ -97,7 +96,7 @@ public class DelayCalculatorSingleton {
     }
 
     private Path getShortestPath(ElementId src, ElementId dst) {
-        Collection<Path> paths = services.pathService.getKShortestPaths(src, dst).collect(Collectors.toCollection(LinkedHashSet::new));
+        Collection<Path> paths = Services.pathService.getKShortestPaths(src, dst).collect(Collectors.toCollection(LinkedHashSet::new));
         if (paths.isEmpty()) {
             throw new RuntimeException("No path found to link");  // I mean how come?
         }
@@ -154,12 +153,12 @@ public class DelayCalculatorSingleton {
     }
 
     private void installRulesToSwitches(List<FlowRule> flowRules) {
-        services.flowRuleService.applyFlowRules(flowRules.toArray(new FlowRule[0]));
-        FlowEntry fe = services.flowRuleService.getFlowEntry(flowRules.get(flowRules.size() - 1));
+        Services.flowRuleService.applyFlowRules(flowRules.toArray(new FlowRule[0]));
+        FlowEntry fe = Services.flowRuleService.getFlowEntry(flowRules.get(flowRules.size() - 1));
         while (fe == null || fe.state() != FlowEntry.FlowEntryState.ADDED) {
             try {
                 Thread.sleep(100);
-                fe = services.flowRuleService.getFlowEntry(flowRules.get(flowRules.size() - 1));
+                fe = Services.flowRuleService.getFlowEntry(flowRules.get(flowRules.size() - 1));
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -194,7 +193,7 @@ public class DelayCalculatorSingleton {
                 log.debug("Delay for switch {} is {}ms", srcDeviceConnPoint.deviceId(), stdout);
             } else {
                 double delay = Double.parseDouble(stdout) - (controlLinkLatencies.get(srcDeviceConnPoint.deviceId()) + controlLinkLatencies.get(dstDeviceConnPoint.deviceId())) / 2;
-                LinksInformationDatabase.updateLinkLatestDelay(services.linkService.getLink(srcDeviceConnPoint, dstDeviceConnPoint), delay);
+                LinksInformationDatabase.updateLinkLatestDelay(Services.linkService.getLink(srcDeviceConnPoint, dstDeviceConnPoint), delay);
                 log.debug("Delay between switch {} and {} is {}ms", srcDeviceConnPoint, dstDeviceConnPoint, delay);
             }
 
@@ -233,7 +232,7 @@ public class DelayCalculatorSingleton {
     }
 
     private Host getNearestControllerHost(ElementId id) {
-        return services.hostService.getHostsByIp(CONTROLLER_HOST_IP).stream().filter(h -> h.location().deviceId().equals(id))
+        return Services.hostService.getHostsByIp(CONTROLLER_HOST_IP).stream().filter(h -> h.location().deviceId().equals(id))
                 .findFirst().orElseThrow(() -> new RuntimeException(String.format("No host connected to %s", id)));
     }
 }

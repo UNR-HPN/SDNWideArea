@@ -24,7 +24,6 @@ import java.util.stream.Stream;
 import static edu.unr.hpclab.flowcontrol.app.ThreadsEnum.SOLUTION_FINDER;
 
 public class SolutionFinder {
-    private final static Services services = Services.getInstance();
     static Logger log = LoggerFactory.getLogger(SolutionFinder.class);
 
     private static int numberOfTotalMoves = 0;
@@ -39,7 +38,7 @@ public class SolutionFinder {
     }
 
     private static void findSolution(Link link) {
-        PathFinderAndRuleInstaller pathFinderAndRuleInstaller = new PathFinderAndRuleInstaller(priority);
+        PathFinderAndRuleInstaller pathFinderAndRuleInstaller = new PathFinderAndRuleInstaller(priority++);
 
         Stream<SrcDstTrafficInfo> stream = CurrentTrafficDataBase.getCurrentTraffic().values().stream()
                 .filter(s -> Util.ageInSeconds(s.getTimeStarted()) > Util.POLL_FREQ * 2)
@@ -54,16 +53,14 @@ public class SolutionFinder {
         List<SrcDstTrafficInfo> flowsWithRequestedRate = srcDstTrafficInfoListGroupedByRequestedRate.get(true);
         List<SrcDstTrafficInfo> flowsWithoutRequestedRate = srcDstTrafficInfoListGroupedByRequestedRate.get(false);
 
-        log.debug("Initial count of flows WITH Requested Rate to find solution for is {}", flowsWithRequestedRate.size());
-        log.debug("Initial count of flows WITHOUT Requested Rate to find solution for is {}", flowsWithoutRequestedRate.size());
 
         if (!Tools.isNullOrEmpty(flowsWithRequestedRate)) {
-            services.getExecutor(SOLUTION_FINDER).submit(() -> findSolutionForFlowsWithRequestedRate(flowsWithRequestedRate, pathFinderAndRuleInstaller));
+            Services.getExecutor(SOLUTION_FINDER).submit(() -> findSolutionForFlowsWithRequestedRate(flowsWithRequestedRate, pathFinderAndRuleInstaller));
         }
-        if (!Tools.isNullOrEmpty(flowsWithoutRequestedRate)) {
-            services.getExecutor(SOLUTION_FINDER).submit(() -> findSolutionForFlowsWithoutRequestedRate(flowsWithoutRequestedRate, pathFinderAndRuleInstaller));
-        }
-        priority++;
+//        if (!Tools.isNullOrEmpty(flowsWithoutRequestedRate)) {
+//            log.debug("Initial count of flows WITHOUT Requested Rate to find solution for is {}", flowsWithoutRequestedRate.size());
+//            Services.getExecutor(SOLUTION_FINDER).submit(() -> findSolutionForFlowsWithoutRequestedRate(flowsWithoutRequestedRate, pathFinderAndRuleInstaller));
+//        }
     }
 
     private static void findSolutionForFlowsWithRequestedRate(List<SrcDstTrafficInfo> srcDstTrafficInfoList, PathFinderAndRuleInstaller pathFinderAndRuleInstaller) {
@@ -80,13 +77,16 @@ public class SolutionFinder {
                             long newRate = Math.min(sol.getAvailableRate(), s.getRequestedRate());
                             double increaseRate = Util.safeDivision(newRate - s.getCurrentRate(), s.getCurrentRate());
                             if (increaseRate >= 0.25) { // If the solution isn't 25% better, don't move
-                                movingActions(pathFinderAndRuleInstaller, s, sol, newRate);
                                 log.info("Moved {} to a new path. It should have now {} instead of {}", s.getSrcDstPair(), newRate, s.getCurrentRate());
                                 log.debug("Used This Solution:::Available Rate {}. Shared Rate {}. Bottleneck link {}", sol.getAvailableRate(), sol.getSharedRate(), sol.getBottleneckLink());
+                                movingActions(pathFinderAndRuleInstaller, s, sol, newRate);
                             }
                         }
                 );
-        log.debug("Spent {} ms Inside findSolution For Flows with Requested Rate", System.currentTimeMillis() - t1);
+        long t2 = System.currentTimeMillis() - t1;
+        if (t2 > 50) {
+            log.warn("Spent {} ms Inside findSolution For Flows WITH Requested Rate", t2);
+        }
     }
 
     private static void inspectSols(SrcDstTrafficInfo s, List<MyPath> sols) {
@@ -122,7 +122,10 @@ public class SolutionFinder {
                             }
                         }
                 );
-        log.debug("Spent {} ms Inside findSolution For Flows without Requested Rate", System.currentTimeMillis() - t1);
+        long t2 = System.currentTimeMillis() - t1;
+        if (t2 > 50) {
+            log.warn("Spent {} ms Inside findSolution For Flows WITHOUT Requested Rate", t2);
+        }
     }
 
     private static void movingActions(PathFinderAndRuleInstaller pathFinderAndRuleInstaller, SrcDstTrafficInfo s, MyPath sol, long newRate) {

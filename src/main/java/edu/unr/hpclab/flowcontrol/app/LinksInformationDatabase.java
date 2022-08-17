@@ -8,8 +8,6 @@ import org.onosproject.net.Link;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.EventuallyConsistentMap;
 import org.onosproject.store.service.WallClockTimestamp;
-import org.osgi.service.component.annotations.Activate;
-import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,11 +18,11 @@ import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
 
-@Component(immediate = true, service = {LinksInformationDatabase.class})
 public class LinksInformationDatabase {
+
+    public static LinksInformationDatabase INSTANCE = new LinksInformationDatabase();
     private static final Logger log = LoggerFactory.getLogger(LinksInformationDatabase.class);
     private static EventuallyConsistentMap<Link, TimedLinkInformation> LINK_INFORMATION_MAP;
-    private final Services services = Services.getInstance();
 
     private static TimedLinkInformation getTimedLinkInformation(Link link) {
         return Optional.ofNullable(link).map(LINK_INFORMATION_MAP::get).orElseGet(() -> new TimedLinkInformation(link));
@@ -101,23 +99,25 @@ public class LinksInformationDatabase {
         LINK_INFORMATION_MAP.clear();
     }
 
-    @Activate
+
     protected void activate() {
         KryoNamespace.Builder mySerializer = KryoNamespace.newBuilder().register(KryoNamespaces.API).register(Link.class)
                 .register(FixedSizeQueue.class).register(ConnectPoint.class).register(TimedLinkInformation.class).register(Long.class);
 
-        LINK_INFORMATION_MAP = services.storageService.<Link, TimedLinkInformation>eventuallyConsistentMapBuilder().withName("link_bandwidth_map").withTimestampProvider((k, v) -> new WallClockTimestamp()).withSerializer(mySerializer).build();
+        LINK_INFORMATION_MAP = Services.storageService.<Link, TimedLinkInformation>eventuallyConsistentMapBuilder().withName("link_bandwidth_map").withTimestampProvider((k, v) -> new WallClockTimestamp()).withSerializer(mySerializer).build();
 
-
-        for (Link link : services.linkService.getLinks()) {
+        for (Link link : Services.linkService.getLinks()) {
             LINK_INFORMATION_MAP.put(link, new TimedLinkInformation(link));
         }
         //DelayCalculatorSingleton.getInstance().testLinksLatency();
     }
 
+    protected void deactivate() {
+    }
+
 
     private static class TimedLinkInformation { // Timed Capacity: Capacity of the link at a certain time
-        private static final long DEFAULT_CAPACITY = Util.MbpsToBps(1000);
+        private final long DEFAULT_CAPACITY = Util.MbpsToBps(1000);
         private final Link link;
         private final FixedSizeQueue<Long> latestReportedRates;
         private long estimatedCapacity;
@@ -172,8 +172,9 @@ public class LinksInformationDatabase {
             } else if (Util.ageInSeconds(penalizationTime) >= Util.POLL_FREQ * 20L) {
                 forgetBandwidth();
             }
-            if (estimatedCapacity < DataRateUnit.MBPS.toBitsPerSecond(600))
+            if (estimatedCapacity < DataRateUnit.MBPS.toBitsPerSecond(600)) {
                 log.warn("Bandwidth for link {} is {} MB", link, estimatedCapacity / (1024 * 1024));
+            }
 //            log.debug("Bandwidth for link {} is {} MB", link, estimatedCapacity / (1024 * 1024));
         }
 

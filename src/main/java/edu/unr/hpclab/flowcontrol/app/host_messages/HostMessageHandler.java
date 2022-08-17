@@ -27,10 +27,9 @@ public class HostMessageHandler {
             .register(SrcDstPair.class, HostMessageType.class, String.class,
                       Path.class, List.class, MacAddress.class);
 
-    private final static Services services = Services.getInstance();
 
     private static final EventuallyConsistentMap<SrcDstPair, Map<HostMessageType, Queue<String>>> HOST_MESSAGES_MAP =
-            services.storageService.<SrcDstPair, Map<HostMessageType, Queue<String>>>eventuallyConsistentMapBuilder()
+            Services.storageService.<SrcDstPair, Map<HostMessageType, Queue<String>>>eventuallyConsistentMapBuilder()
                     .withName("hostMessagesMap")
                     .withTimestampProvider((x, y) -> new WallClockTimestamp())
                     .withSerializer(mySerializer)

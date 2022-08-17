@@ -9,7 +9,6 @@ import java.util.Collections;
 
 public class BottleneckDetector {
     private static final Logger log = LoggerFactory.getLogger(BottleneckDetector.class);
-
     public static boolean shouldBePenalized(Link link) {
         double baseDelay = LinksInformationDatabase.getLinkBaseDelay(link);
         long lastDelayCheck = LinksInformationDatabase.getLinkLastDelayCheck(link);
