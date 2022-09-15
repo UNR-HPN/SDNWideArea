@@ -35,15 +35,14 @@ import java.util.concurrent.TimeUnit;
  * Skeletal ONOS application component.
  */
 
-public class MyPacketProcessor {
-    public static final MyPacketProcessor INSTANCE = new MyPacketProcessor();
-    private static final Logger log = LoggerFactory.getLogger(MyPacketProcessor.class);
-    ;
+public class MainFlowsPacketProcessor {
+    public static final MainFlowsPacketProcessor INSTANCE = new MainFlowsPacketProcessor();
+    private static final Logger log = LoggerFactory.getLogger(MainFlowsPacketProcessor.class);
     private PacketProcessor packetProcessor;
 
     protected void activate() {
         packetProcessor = new InternalPacketProcessor();
-        Services.packetService.addProcessor(packetProcessor, 1);
+        Services.packetService.addProcessor(packetProcessor, PacketProcessor.director(1));
     }
 
     protected void deactivate() {
@@ -55,7 +54,7 @@ public class MyPacketProcessor {
         private final Cache<SrcDstPair, Long> cache = CacheBuilder.newBuilder()
                 .expireAfterWrite(5, TimeUnit.SECONDS)
                 .build();
-        PathFinderAndRuleInstaller pathFinderAndRuleInstaller = new PathFinderAndRuleInstaller(20);
+        PathFinderAndRuleInstaller basePathFinderAndRuleInstaller = new PathFinderAndRuleInstaller();
         private int flows = 0;
 
         @Override
@@ -71,11 +70,10 @@ public class MyPacketProcessor {
                     if (srcDstPair == null) {
                         return;
                     }
+
                     if (cache.getIfPresent(srcDstPair) != null) {
                         context.block();
                         return;
-                    } else {
-                        cache.put(srcDstPair, 1L);
                     }
 
                     long requestedRate = HostMessageHandler.getLatestMessage(srcDstPair, HostMessageType.RATE_REQUEST).longValue();
@@ -85,35 +83,37 @@ public class MyPacketProcessor {
                     boolean secondCond = srcDstPair.getSrcPort() > 10000 && srcDstPair.getDstPort() > 10000;
                     boolean thirdCond = cache.getIfPresent(srcDstPair.reversed()) == null;
                     boolean forthCond = requestedRate > 0 && requestedDelay > 0;
+                    boolean fifthCond = !CurrentTrafficDataBase.contains(srcDstPair) && !CurrentTrafficDataBase.contains(srcDstPair.reversed());
 
                     SrcDstTrafficInfo srcDstTrafficInfo = new SrcDstTrafficInfo(srcDstPair, null, requestedRate, requestedDelay);
 
-                    if (firstCond && secondCond && thirdCond && forthCond) {
+                    if (firstCond && secondCond && thirdCond && fifthCond) {
+                        cache.put(srcDstPair, 1L);
+                        if (!forthCond) {
+                            String imposter = requestedDelay > 0 ? "Req Rate" : requestedRate == 0 ? "Req Rate & Req Delay" : "Req Delay";
+                            log.warn("SrcDst {} has zero value of {} ", srcDstPair, imposter);
+                        }
                         log.info("Flow #{} Joined {}", flows, srcDstPair);
-                        CurrentTrafficDataBase.addCurrentTraffic(srcDstPair, srcDstTrafficInfo);
-//                        if (requestedRate == 0 || requestedDelay == 0) {
-//                            log.warn("Requested Rate {}, Requested Delay {} for {}", requestedRate, requestedDelay, srcDstPair);
-//                        }
+                        long t1 = System.currentTimeMillis();
+                        handleTrafficPath(context, srcDstPair, srcDstTrafficInfo);
+                        long t2 = System.currentTimeMillis() - t1;
+                        if (t2 > 50) {
+                            log.warn("Took {}ms to handle joining of flow {}", t2, srcDstPair);
+                        }
                         flows++;
-                    } else {
-                        log.trace("SrcDst Pair {} joined", srcDstPair);
                     }
-
-//                    Services.getExecutor(ThreadsEnum.SOLUTION_FINDER).submit(() -> {
-                    long t1 = System.currentTimeMillis();
-                    MyPath path = pathFinderAndRuleInstaller.applyAndGetPath(srcDstTrafficInfo);
-                    srcDstTrafficInfo.setCurrentPath(path);
-                    context.treatmentBuilder().setOutput(path.links().get(1).src().port());
-                    context.send();
-                    long t2 = System.currentTimeMillis() - t1;
-                    if (t2 > 50) {
-                        log.warn("Took {}ms to handle joining of flow {}", t2, srcDstPair);
-                    }
-//                    });
                 } catch (Exception e) {
                     log.error("", e);
                 }
             }
+        }
+
+        private void handleTrafficPath(PacketContext context, SrcDstPair srcDstPair, SrcDstTrafficInfo srcDstTrafficInfo) {
+            CurrentTrafficDataBase.addCurrentTraffic(srcDstPair, srcDstTrafficInfo);
+            MyPath path = basePathFinderAndRuleInstaller.applyAndGetPath(srcDstTrafficInfo);
+            srcDstTrafficInfo.setCurrentPath(path);
+            context.treatmentBuilder().setOutput(path.links().get(1).src().port());
+            context.send();
         }
 
         private SrcDstPair getSrcDstPair(Ethernet ethPacket) {
@@ -129,7 +129,7 @@ public class MyPacketProcessor {
             } else {
                 return null;
             }
-            return new SrcDstPair(ethPacket.getSourceMAC(), ethPacket.getDestinationMAC(), srcPort, dstPort);
+            return new SrcDstPair(ethPacket.getSourceMAC(), ethPacket.getDestinationMAC(), srcPort, dstPort, packet.getProtocol());
         }
 
     }

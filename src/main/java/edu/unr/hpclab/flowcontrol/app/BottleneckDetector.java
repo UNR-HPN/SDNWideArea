@@ -13,15 +13,11 @@ public class BottleneckDetector {
         double baseDelay = LinksInformationDatabase.getLinkBaseDelay(link);
         long lastDelayCheck = LinksInformationDatabase.getLinkLastDelayCheck(link);
         if (Util.ageInSeconds(lastDelayCheck) > Util.POLL_FREQ * 2 || lastDelayCheck == 0) {
-            //DelayCalculatorSingleton.getInstance().testLinksLatency(Collections.singletonList(link));
+            DelayCalculatorSingleton.getInstance().testLinksLatency(Collections.singletonList(link));
         } else {
             return false;
         }
         double latestDelay = LinksInformationDatabase.getLatestLinkDelay(link);
-        boolean penalize = Util.safeDivision(latestDelay, baseDelay) >= 10;
-        if (penalize) {
-            log.info("Penalize!! LatestDelay: {} BaseDelay{}", latestDelay, baseDelay);
-        }
-        return penalize;
+        return Util.safeDivision(latestDelay, baseDelay) >= 10;
     }
 }

@@ -89,6 +89,9 @@ public class DelayCalculatorSingleton {
     }
 
     private void pingSwitch(ConnectPoint switchConnPoint) {
+        if (controlLinkLatencies.containsKey(switchConnPoint.deviceId())) {
+            return;
+        }
         byte icmpType = (byte) (new Random().nextInt(80) + 10);
         Path pathToSwitch = getShortestPath(getNearestControllerHost(switchConnPoint.elementId()).id(), switchConnPoint.elementId());
         installHostToSwitchRules(pathToSwitch, icmpType);
@@ -190,7 +193,7 @@ public class DelayCalculatorSingleton {
 
             if (isPing) {
                 controlLinkLatencies.put(srcDeviceConnPoint.deviceId(), Double.parseDouble(stdout));
-                log.debug("Delay for switch {} is {}ms", srcDeviceConnPoint.deviceId(), stdout);
+                //log.debug("Delay for switch {} is {}ms", srcDeviceConnPoint.deviceId(), stdout);
             } else {
                 double delay = Double.parseDouble(stdout) - (controlLinkLatencies.get(srcDeviceConnPoint.deviceId()) + controlLinkLatencies.get(dstDeviceConnPoint.deviceId())) / 2;
                 LinksInformationDatabase.updateLinkLatestDelay(Services.linkService.getLink(srcDeviceConnPoint, dstDeviceConnPoint), delay);
@@ -224,7 +227,7 @@ public class DelayCalculatorSingleton {
         return DefaultFlowRule.builder()
                 .withTreatment(treatment)
                 .withSelector(selector)
-                .withPriority(100)
+                .withPriority(3001)
                 .forDevice(dId)
                 .fromApp(DELAY_CALCULATOR_APP_ID)
                 .makeTemporary(Util.POLL_FREQ)

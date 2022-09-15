@@ -1,7 +1,6 @@
 package edu.unr.hpclab.flowcontrol.app;
 
 
-import org.onlab.util.DataRateUnit;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.Link;
@@ -11,17 +10,19 @@ import org.onosproject.store.service.WallClockTimestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.LongSummaryStatistics;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 
 
 public class LinksInformationDatabase {
 
-    public static LinksInformationDatabase INSTANCE = new LinksInformationDatabase();
     private static final Logger log = LoggerFactory.getLogger(LinksInformationDatabase.class);
+    public static LinksInformationDatabase INSTANCE = new LinksInformationDatabase();
     private static EventuallyConsistentMap<Link, TimedLinkInformation> LINK_INFORMATION_MAP;
 
     private static TimedLinkInformation getTimedLinkInformation(Link link) {
@@ -109,7 +110,7 @@ public class LinksInformationDatabase {
         for (Link link : Services.linkService.getLinks()) {
             LINK_INFORMATION_MAP.put(link, new TimedLinkInformation(link));
         }
-        //DelayCalculatorSingleton.getInstance().testLinksLatency();
+        DelayCalculatorSingleton.getInstance().testLinksLatency();
     }
 
     protected void deactivate() {
@@ -117,7 +118,7 @@ public class LinksInformationDatabase {
 
 
     private static class TimedLinkInformation { // Timed Capacity: Capacity of the link at a certain time
-        private final long DEFAULT_CAPACITY = Util.MbpsToBps(1000);
+        private static final long DEFAULT_CAPACITY = Util.MbpsToBps(50);
         private final Link link;
         private final FixedSizeQueue<Long> latestReportedRates;
         private long estimatedCapacity;
@@ -126,6 +127,7 @@ public class LinksInformationDatabase {
         private double baseDelay;
         private long lastDelayCheck;
         private long penalizationTime;
+        private ScheduledFuture<?> returnToDefaultCapacity;
 
         private TimedLinkInformation(Link link) {
             this.link = link;
@@ -152,36 +154,36 @@ public class LinksInformationDatabase {
 
         private void estimateCapacity() {
             long prevEstimate = this.estimatedCapacity;
-            long latestRate = this.getLastReportedRate();
-            long avgReportedCapacity = (long) latestReportedRates.stream().mapToLong(Long::longValue).average().orElse(DEFAULT_CAPACITY);
+            LongSummaryStatistics summaryStatistics = latestReportedRates.stream().mapToLong(Long::longValue).summaryStatistics();
+            long avgReportedCapacity = (long) summaryStatistics.getAverage();
             double bwDiff = Util.safeDivision(prevEstimate - avgReportedCapacity, (prevEstimate + avgReportedCapacity) / 2);
             if (bwDiff > 0.3) { // if the change between different values > 30%
                 if (BottleneckDetector.shouldBePenalized(link)) {
-                    this.estimatedCapacity = latestRate;
-                    log.info("PENALIZING THIS LINK {}. New Capacity is {}", link, estimatedCapacity);
+                    this.estimatedCapacity = avgReportedCapacity;
                     setPenalizationTime(System.currentTimeMillis());
                     SolutionFinder.findSolutionForDroppedLink(link);
+                    runTimerToResetLink();
+                    log.warn("Penalize {} !! LatestDelay: {} BaseDelay{}, Current BW {}", Util.formatLink(link), latestDelay, baseDelay, this.estimatedCapacity);
                 } else {
-                    // Keeping estimated capacity as before since delay values are normal
                     this.estimatedCapacity = prevEstimate;
-//                    this.latestReportedRates.addLast(this.estimatedCapacity);
-//                    this.latestReportedRates.addLast(latestRate);
                 }
-            } else if (bwDiff < 0) {
-                this.estimatedCapacity = latestRate;
-            } else if (Util.ageInSeconds(penalizationTime) >= Util.POLL_FREQ * 20L) {
-                forgetBandwidth();
             }
-            if (estimatedCapacity < DataRateUnit.MBPS.toBitsPerSecond(600)) {
-                log.warn("Bandwidth for link {} is {} MB", link, estimatedCapacity / (1024 * 1024));
+            if (bwDiff < -0.10) {  // There is an increase!
+                this.estimatedCapacity = summaryStatistics.getMax();
             }
-//            log.debug("Bandwidth for link {} is {} MB", link, estimatedCapacity / (1024 * 1024));
+            log.info("Bandwidth for link {} is {} MB", this, this.estimatedCapacity / (1024 * 1024));
+        }
+
+        private void runTimerToResetLink() {
+            if (returnToDefaultCapacity != null) {
+                returnToDefaultCapacity.cancel(true);
+            }
+            returnToDefaultCapacity = Services.scheduleAfterNSeconds(this::forgetBandwidth, Util.POLL_FREQ * 10);
         }
 
         public void forgetBandwidth() {
             this.estimatedCapacity = DEFAULT_CAPACITY;
             log.info("Returned {} capacity to {}", link, estimatedCapacity);
-//            SolutionFinder.findSolutionAfterFlowTerminate();
         }
 
         public long getPenalizationTime() {

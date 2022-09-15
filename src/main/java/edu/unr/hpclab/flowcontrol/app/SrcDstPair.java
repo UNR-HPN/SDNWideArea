@@ -10,14 +10,17 @@ public class SrcDstPair {
     private final MacAddress dstMac;
     private final int srcPort;
     private final int dstPort;
+    private final byte protocol;
 
 
-    public SrcDstPair(MacAddress srcMac, MacAddress dstMac, int srcPort, int dstPort) {
+    public SrcDstPair(MacAddress srcMac, MacAddress dstMac, int srcPort, int dstPort, byte protocol) {
         this.srcMac = srcMac;
         this.dstMac = dstMac;
         this.srcPort = srcPort;
         this.dstPort = dstPort;
+        this.protocol = protocol;
     }
+
 
     @Override
     public boolean equals(Object o) {
@@ -29,6 +32,10 @@ public class SrcDstPair {
         }
         SrcDstPair srcDstPair = (SrcDstPair) o;
         return Objects.equals(srcMac, srcDstPair.srcMac) && Objects.equals(dstMac, srcDstPair.dstMac) && Objects.equals(dstPort, srcDstPair.dstPort) && Objects.equals(srcPort, srcDstPair.srcPort);
+    }
+
+    public byte getProtocol() {
+        return protocol;
     }
 
     public int getSrcPort() {
@@ -53,7 +60,7 @@ public class SrcDstPair {
     }
 
     public SrcDstPair reversed() {
-        return new SrcDstPair(dstMac, srcMac, dstPort, srcPort);
+        return new SrcDstPair(dstMac, srcMac, dstPort, srcPort, protocol);
     }
 
     @Override

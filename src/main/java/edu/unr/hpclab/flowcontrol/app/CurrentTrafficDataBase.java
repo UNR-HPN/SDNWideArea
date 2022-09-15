@@ -55,6 +55,7 @@ public class CurrentTrafficDataBase {
 
     protected void deactivate() {
         writeResultsToFile();
+        CURRENT_TRAFFIC_MAP.destroy();
     }
 
     private void writeResultsToFile() {
@@ -76,7 +77,7 @@ public class CurrentTrafficDataBase {
         @Override
         public void run() {
             try {
-                for (Map.Entry<SrcDstPair, SrcDstTrafficInfo> entry : CURRENT_TRAFFIC_MAP.entrySet()) {
+                for (Map.Entry<SrcDstPair, SrcDstTrafficInfo> entry : getCurrentTraffic().entrySet()) {
                     entry.getValue().setCurrentRate();
                     // Ignoring traffic below 2 MBPs and Too recent traffic (less than 5 sec)
                     boolean remove = entry.getValue().getCurrentRate() < DataRateUnit.MBPS.toBitsPerSecond(2) && Util.ageInSeconds(entry.getValue().getTimeStarted()) >= 2 * Util.POLL_FREQ;

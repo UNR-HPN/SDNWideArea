@@ -54,6 +54,10 @@ public class Services {
         return scheduledExecutorService.scheduleAtFixedRate(runnable, time, delay, TimeUnit.SECONDS);
     }
 
+    public static ScheduledFuture<?> scheduleAfterNSeconds(Runnable runnable, int delay) {
+        return scheduledExecutorService.schedule(runnable, delay, TimeUnit.SECONDS);
+    }
+
     public static ThreadPoolExecutor getExecutor(ThreadsEnum th) {
         return threadPoolExecutorMap.computeIfAbsent(th, (x) -> new ThreadPoolExecutor(th.getPoolSize(), th.getPoolSize(), 10, TimeUnit.SECONDS, new ArrayBlockingQueue<>(th.getQSize()), new ThreadPoolExecutor.DiscardPolicy()));
     }

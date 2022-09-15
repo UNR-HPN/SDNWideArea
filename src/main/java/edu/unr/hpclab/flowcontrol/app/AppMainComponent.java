@@ -14,7 +14,7 @@ public class AppMainComponent {
     @Activate
     protected void activate() {
         try {
-            MyPacketProcessor.INSTANCE.activate();
+            MainFlowsPacketProcessor.INSTANCE.activate();
             CurrentTrafficDataBase.INSTANCE.activate();
             LinkCapacityWatchdog.INSTANCE.activate();
             LinksInformationDatabase.INSTANCE.activate();
@@ -27,7 +27,7 @@ public class AppMainComponent {
 
     @Deactivate
     protected void deactivate() {
-        MyPacketProcessor.INSTANCE.deactivate();
+        MainFlowsPacketProcessor.INSTANCE.deactivate();
         CurrentTrafficDataBase.INSTANCE.deactivate();
         LinkCapacityWatchdog.INSTANCE.deactivate();
         LinksInformationDatabase.INSTANCE.deactivate();

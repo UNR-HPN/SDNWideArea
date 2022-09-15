@@ -21,10 +21,20 @@ import java.util.List;
 import static org.onlab.packet.Ethernet.TYPE_IPV4;
 
 public class PathFinderAndRuleInstaller {
-    public int priority;
+    private final int priority;
+    private final int liveTime;
+
+    public PathFinderAndRuleInstaller(int priority, int liveTime) {
+        this.priority = priority % 3000;
+        this.liveTime = liveTime;
+    }
+
+    public PathFinderAndRuleInstaller() {
+        this(20, Util.POLL_FREQ);
+    }
 
     public PathFinderAndRuleInstaller(int priority) {
-        this.priority = priority;
+        this(priority, Util.POLL_FREQ);
     }
 
     public Path applyAndGetPath(SrcDstPair srcDstPair) {
@@ -73,24 +83,29 @@ public class PathFinderAndRuleInstaller {
                 .setOutput(outPort)
                 .build();
 
-        TrafficSelector tf = DefaultTrafficSelector.builder()
+        TrafficSelector.Builder tf = DefaultTrafficSelector.builder()
+                .matchEthType(TYPE_IPV4)
                 .matchEthSrc(srcDstPair.getSrcMac())
                 .matchEthDst(srcDstPair.getDstMac())
-                .matchEthType(TYPE_IPV4)
-                .matchIPProtocol(IPv4.PROTOCOL_TCP)
-                .matchTcpSrc(TpPort.tpPort(srcDstPair.getSrcPort()))
-                .matchTcpDst(TpPort.tpPort(srcDstPair.getDstPort()))
-                .matchInPort(inPort)
-                .build();
+                .matchInPort(inPort);
 
+        if (srcDstPair.getProtocol() == IPv4.PROTOCOL_TCP) {
+            tf.matchIPProtocol(IPv4.PROTOCOL_TCP);
+            tf.matchTcpSrc(TpPort.tpPort(srcDstPair.getSrcPort()));
+            tf.matchTcpDst(TpPort.tpPort(srcDstPair.getDstPort()));
+        } else if (srcDstPair.getProtocol() == IPv4.PROTOCOL_UDP) {
+            tf.matchIPProtocol(IPv4.PROTOCOL_UDP);
+            tf.matchUdpSrc(TpPort.tpPort(srcDstPair.getSrcPort()));
+            tf.matchUdpDst(TpPort.tpPort(srcDstPair.getDstPort()));
+        }
 
         return DefaultFlowRule.builder()
                 .withTreatment(treatment)
-                .withSelector(tf)
+                .withSelector(tf.build())
                 .forDevice(dId)
                 .withPriority(priority)
                 .fromApp(Services.appId)
-                .makeTemporary(Util.POLL_FREQ)
+                .makeTemporary(liveTime)
                 .build();
     }
 }

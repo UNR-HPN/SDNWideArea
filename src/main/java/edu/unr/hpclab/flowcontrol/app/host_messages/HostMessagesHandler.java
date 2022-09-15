@@ -114,7 +114,7 @@ public class HostMessagesHandler {
 
         private SrcDstPair getSrcDstPair(Ethernet inPkt, String portS) {
             int port = Integer.parseInt(portS);
-            return new SrcDstPair(inPkt.getSourceMAC(), inPkt.getDestinationMAC(), port, port);
+            return new SrcDstPair(inPkt.getSourceMAC(), inPkt.getDestinationMAC(), port, port, IPv4.PROTOCOL_ICMP);
         }
 
     }
